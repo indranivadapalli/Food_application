@@ -4,7 +4,8 @@ backend/venv/
 # Python cache
 backend/__pycache__/
 backend/*.pyc
-
+**/__pycache__/
+backend/routers/__pycache__/
 # Logs
 backend/logs/
 
