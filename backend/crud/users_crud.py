@@ -1,34 +1,53 @@
-from backend.database.models import User
-from backend.database.database import get_session,engine
-from sqlmodel import Session,select
+from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
+from database.models import User
 
-
-
-with get_session as session:
-    user=User(
-        name="Indrani",
-        email="indrani@gmail.com",
-        mobile=9491604846,
-        address="coromandel gate",
-        password="secret",
-        profile_picture="hello.jpg"
-
+def create_user(session: Session, data: dict) -> User:
+    user = User(
+        name=data["name"],
+        email=data["email"],
+        mobile=data["mobile"],
+        password=data["password"],
+        address=data["address"],
+        profile_picture=data.get("profile_picture") 
     )
     session.add(user)
     session.commit()
     session.refresh(user)
+    return user
 
-    print(user.id)
-def get_user(user_id:int):
-    with session(engine) as session:
-        return session.get(User,user_id)
-def update_user(user_id:int,address:str):
-    with session(engine) as session:
-        user=session.get(User,user_id)
-        user.address=address
-        session.commit()
-        return user
-def delete_user(user_id:int):
-    user=session.get(User,user_id)
+def get_user(session: Session, user_id: int):
+    return session.get(User, user_id)
+
+def get_all_users(session: Session):
+    return session.exec(select(User)).all()
+
+def update_user(session: Session, user_id: int, data: dict):
+    user = session.get(User, user_id)
+    if not user:
+        return None
+
+    for key, value in data.items():
+        setattr(user, key, value)
+
+    session.commit()
+    session.refresh(user)
+    return user
+
+def delete_user(session: Session, user_id: int):
+    user = session.get(User, user_id)
+    if not user:
+        return False
+
     session.delete(user)
     session.commit()
+    return True
+
+def get_user_with_orders(session: Session, user_id: int):
+    stmt = (
+        select(User)
+        .where(User.id == user_id)
+        .options(selectinload(User.orders))
+    )
+    return session.exec(stmt).first()
+
