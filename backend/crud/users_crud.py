@@ -19,6 +19,17 @@ def create_user(session: Session, data: dict) -> User:
 def get_user(session: Session, user_id: int):
     return session.get(User, user_id)
 
+def verify_user(session: Session, email: str, password: str):
+    try:
+        user = session.exec(select(User).where(User.email == email, User.password == password)).first()
+        if not user:
+            return False, {}
+        else:
+            return True, user
+    except Exception as e:
+        return False, {}
+        
+
 def get_all_users(session: Session):
     return session.exec(select(User)).all()
 

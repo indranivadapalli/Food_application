@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Form, UploadFile, File
 from pydantic import EmailStr
 from utils import read_json, write_json, is_valid_mobile
+from crud.users_crud import create_user, get_user, verify_user
 from logger_config import get_logger
 import os, shutil, re
+from database.database import get_session
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = get_logger("UsersAPI")
@@ -54,15 +56,18 @@ def register_user(
         "profile_picture": file_path
     }
 
-    users.append(user_data)
-    write_json(USER_FILE, users)
+    user =  create_user(session=get_session(), data=user_data)
 
-    logger.info("User registered successfully: %s", email)
+
+    # users.append(user_data)
+    # write_json(USER_FILE, users)
+
+    logger.info(f"User registered successfully {user}")
 
     return {
         "status": "success",
         "message": "User registered successfully",
-        "user_id": user_data["id"]
+        "user_id": user
     }
 
 
@@ -72,30 +77,21 @@ def login_user(
     password: str = Form(...)
 ):
     logger.info("Login attempt for %s", email)
+    user_exist, user = verify_user(email, password)
+    if user_exist:
+        return {
+            'status': 'success',
+            'message': 'user login succesful',
+            'user': user
 
-    users = read_json(USER_FILE)
+        }
 
-    for user in users:
-        if user["email"] == email and user["password"] == password:
-            logger.info("Login successful for %s", email)
-            return {
-                "status": "success",
-                "message": "Login successful",
-                "user": {
-                    "id": user["id"],
-                    "name": user["name"],
-                    "email": user["email"],
-                    "mobile": user["mobile"],
-                    "address": user["address"],
-                    "profile_picture": user["profile_picture"]
-                }
-            }
+    else:
 
-    logger.warning("Invalid login attempt for %s", email)
-    return {
-        "status": "error",
-        "message": "Invalid email or password"
-    }
+        return {
+            "status": "error",
+            "message": "Invalid email or password"
+        }
 
 
 @router.get("/")
