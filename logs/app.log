@@ -1,0 +1,64 @@
+2025-12-30 17:05:46,839 | INFO | UsersAPI | User registration started: chandini@example.com
+2025-12-30 17:05:46,873 | WARNING | UsersAPI | Weak password attempt: chandini@example.com
+2025-12-30 17:06:02,198 | INFO | UsersAPI | User registration started: chandini@example.com
+2025-12-30 17:06:02,211 | INFO | UsersAPI | User registered successfully: chandini@example.com
+2025-12-31 09:28:46,037 | INFO | OrdersAPI | Fetching all orders
+2025-12-31 09:28:46,097 | INFO | OrdersAPI | Retrieved 3 orders
+2025-12-31 09:42:59,466 | INFO | OrdersAPI | Order creation started: indrani@example.com @ meghalaya
+2025-12-31 09:42:59,600 | INFO | OrdersAPI | Delivery assigned: srinu
+2025-12-31 09:43:02,513 | INFO | OrdersAPI | Order creation started: indrani@example.com @ meghalaya
+2025-12-31 09:43:02,577 | INFO | OrdersAPI | Delivery assigned: raju
+2025-12-31 09:43:29,409 | INFO | OrdersAPI | Fetching all orders
+2025-12-31 09:43:29,451 | INFO | OrdersAPI | Retrieved 5 orders
+2025-12-31 09:50:18,499 | INFO | OrdersAPI | Order creation started: sravani@example.com @ meghalaya
+2025-12-31 09:50:18,505 | INFO | OrdersAPI | Delivery assigned: gireesh
+2025-12-31 09:50:53,195 | INFO | OrdersAPI | Fetching all orders
+2025-12-31 09:50:53,229 | INFO | OrdersAPI | Retrieved 6 orders
+2025-12-31 09:56:35,192 | INFO | OrdersAPI | Order creation started: shannu@example.com @ dolphin
+2025-12-31 09:56:35,202 | INFO | OrdersAPI | Delivery assigned: gireesh
+2025-12-31 10:29:25,421 | INFO | RestaurantsAPI | Adding restaurant: novotel
+2025-12-31 10:30:25,605 | INFO | RestaurantsAPI | Adding menu item chicken biryani to restaurant 1
+2025-12-31 10:31:25,241 | INFO | RestaurantsAPI | Adding menu item chicken biryani to restaurant 1
+2025-12-31 10:31:48,362 | INFO | RestaurantsAPI | Adding menu item mutton biryani to restaurant 1
+2025-12-31 10:48:04,259 | INFO | RestaurantsAPI | Adding menu item prawns biryani to restaurant 1
+2025-12-31 10:48:36,125 | INFO | RestaurantsAPI | Adding menu item idly to restaurant 1
+2025-12-31 10:48:47,483 | INFO | RestaurantsAPI | Adding menu item dosa to restaurant 1
+2025-12-31 10:49:12,821 | INFO | RestaurantsAPI | Adding menu item dosa to restaurant 1
+2025-12-31 10:49:24,001 | INFO | RestaurantsAPI | Adding menu item idly to restaurant 1
+2025-12-31 10:49:34,498 | INFO | RestaurantsAPI | Adding menu item puri to restaurant 1
+2025-12-31 10:50:04,853 | INFO | RestaurantsAPI | Adding menu item chicken 555 to restaurant 1
+2025-12-31 10:51:07,043 | INFO | RestaurantsAPI | Adding menu item stuffed mushrooms to restaurant 1
+2025-12-31 10:52:04,702 | INFO | RestaurantsAPI | Adding menu item seekh kebab to restaurant 1
+2025-12-31 10:53:21,648 | INFO | RestaurantsAPI | Adding menu item thumsup to restaurant 1
+2025-12-31 10:53:28,803 | INFO | RestaurantsAPI | Adding menu item sevenup to restaurant 1
+2025-12-31 10:53:37,052 | INFO | RestaurantsAPI | Adding menu item limca to restaurant 1
+2025-12-31 10:54:21,805 | INFO | RestaurantsAPI | Adding menu item custard pudding to restaurant 1
+2025-12-31 10:54:38,070 | INFO | RestaurantsAPI | Adding menu item cheesecake to restaurant 1
+2025-12-31 10:54:46,422 | INFO | RestaurantsAPI | Adding menu item kunafa to restaurant 1
+2025-12-31 11:22:24,466 | INFO | RestaurantsAPI | Fetching menu for restaurant 1
+2025-12-31 15:37:25,075 | ERROR | OrdersAPI | Create order failed: name 'invoice' is not defined
+Traceback (most recent call last):
+  File "C:\Users\INDRANI\Documents\food_app\routers\orders.py", line 122, in create_order
+    invoice_path = f"uploads/{invoice.filename}"
+                              ^^^^^^^
+NameError: name 'invoice' is not defined
+2025-12-31 16:10:45,548 | INFO | UsersAPI | Fetching all users
+2025-12-31 16:10:45,566 | INFO | UsersAPI | Retrieved 4 users
+2025-12-31 16:57:33,529 | INFO | DeliveryAPI | Fetching all delivery persons
+2025-12-31 16:57:33,529 | INFO | DeliveryAPI | Retrieved 9 delivery persons
+2026-01-02 07:53:33,145 | INFO | OrdersAPI | Order created successfully: 11
+2026-01-02 07:54:25,383 | INFO | OrdersAPI | Order created successfully: 12
+2026-01-02 12:10:02,463 | INFO | OrdersAPI | Order created successfully: 13
+2026-01-02 13:16:21,788 | INFO | UsersAPI | Fetching all users
+2026-01-02 13:16:21,808 | INFO | UsersAPI | Retrieved 4 users
+2026-01-02 15:00:25,219 | INFO | OrdersAPI | Section tiffins missing in timings
+2026-01-02 15:01:40,175 | INFO | OrdersAPI | Section desserts missing in timings
+2026-01-02 15:02:16,735 | INFO | OrdersAPI | Section main_course missing in timings
+2026-01-02 15:11:04,579 | INFO | OrdersAPI | Section main_course missing in timings
+2026-01-02 15:12:03,711 | INFO | OrdersAPI | Section main_course missing in timings
+2026-01-02 15:15:44,782 | INFO | OrdersAPI | Availability check | section=starters | now=15:15:44.776926 | start=12:00:00 | end=22:00:00
+2026-01-02 15:15:44,785 | INFO | OrdersAPI | Order created successfully: 14
+2026-01-02 15:17:34,651 | INFO | OrdersAPI | Availability check | section=tiffins | now=15:17:34.650051 | start=07:00:00 | end=11:00:00
+2026-01-02 15:17:48,461 | INFO | OrdersAPI | Availability check | section=desserts | now=15:17:48.461490 | start=07:00:00 | end=23:00:00
+2026-01-02 15:17:48,462 | INFO | OrdersAPI | Availability check | section=main_course | now=15:17:48.462474 | start=12:00:00 | end=23:00:00
+2026-01-02 15:17:48,466 | INFO | OrdersAPI | Order created successfully: 15

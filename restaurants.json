@@ -1,0 +1,155 @@
+[
+    {
+        "id": 1,
+        "name": "novotel",
+        "address": "beach road",
+        "contact": "9807653421",
+        "menu": {
+            "tiffins": [
+                {
+                    "item_id": 1,
+                    "name": "dosa",
+                    "price": 149.0
+                },
+                {
+                    "item_id": 2,
+                    "name": "idly",
+                    "price": 99.0
+                },
+                {
+                    "item_id": 3,
+                    "name": "puri",
+                    "price": 179.0
+                }
+            ],
+            "starters": [
+                {
+                    "item_id": 1,
+                    "name": "chicken 555",
+                    "price": 379.0
+                },
+                {
+                    "item_id": 2,
+                    "name": "stuffed mushrooms",
+                    "price": 369.0
+                },
+                {
+                    "item_id": 3,
+                    "name": "seekh kebab",
+                    "price": 419.0
+                }
+            ],
+            "main_course": [
+                {
+                    "item_id": 1,
+                    "name": "chicken biryani",
+                    "price": 499.0
+                },
+                {
+                    "item_id": 2,
+                    "name": "mutton biryani",
+                    "price": 579.0
+                },
+                {
+                    "item_id": 3,
+                    "name": "prawns biryani",
+                    "price": 579.0
+                }
+            ],
+            "soft_drinks": [
+                {
+                    "item_id": 1,
+                    "name": "thumsup",
+                    "price": 119.0
+                },
+                {
+                    "item_id": 2,
+                    "name": "sevenup",
+                    "price": 119.0
+                },
+                {
+                    "item_id": 3,
+                    "name": "limca",
+                    "price": 119.0
+                }
+            ],
+            "desserts": [
+                {
+                    "item_id": 1,
+                    "name": "custard pudding",
+                    "price": 329.0
+                },
+                {
+                    "item_id": 2,
+                    "name": "cheesecake",
+                    "price": 329.0
+                },
+                {
+                    "item_id": 3,
+                    "name": "kunafa",
+                    "price": 329.0
+                }
+            ]
+        }
+    },
+    {
+        "id": 2,
+        "name": "dolphin",
+        "address": "dwaraka nagar",
+        "contact": "908564321",
+        "restaurant_pic": "payment.jpg",
+        "menu": {
+            "tiffins": [
+                {
+                    "item_id": 1,
+                    "name": "idly",
+                    "price": 99.0
+                }
+            ],
+            "starters": [
+                {
+                    "item_id": 1,
+                    "name": "kebab",
+                    "price": 419.0
+                }
+            ],
+            "main_course": [
+                {
+                    "item_id": 1,
+                    "name": "biryani",
+                    "price": 500.0
+                }
+            ],
+            "soft_drinks": [],
+            "desserts": [
+                {
+                    "item_id": 1,
+                    "name": "jalebi",
+                    "price": 419.0
+                }
+            ]
+        },
+        "section_timings": {
+            "tiffins": {
+                "start": "07:00",
+                "end": "11:00"
+            },
+            "starters": {
+                "start": "12:00",
+                "end": "22:00"
+            },
+            "main_course": {
+                "start": "12:00",
+                "end": "23:00"
+            },
+            "soft_drinks": {
+                "start": "07:00",
+                "end": "23:00"
+            },
+            "desserts": {
+                "start": "07:00",
+                "end": "23:00"
+            }
+        }
+    }
+]

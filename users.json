@@ -1,0 +1,32 @@
+[
+    {
+        "id": 1,
+        "name": "indrani",
+        "email": "indrani@gmail.com",
+        "contact": "9491604846",
+        "address": "gajuwaka"
+    },
+    {
+        "id": 2,
+        "name": "sravani",
+        "email": "sravani@gmail.com",
+        "contact": "9654321386",
+        "address": "sriharipuram"
+    },
+    {
+        "id": 3,
+        "name": "shannu",
+        "email": "shannu@gmail.com",
+        "contact": "9876097432",
+        "address": "depot"
+    },
+    {
+        "id": 4,
+        "name": "chandini",
+        "email": "chandini@example.com",
+        "mobile": "8186918699",
+        "address": "hyderabad",
+        "password": "Chandu@123",
+        "profile_picture": "uploads/profile_pictures/chandini@example.com_payment.jpg"
+    }
+]

@@ -1,0 +1,56 @@
+[
+    {
+        "id": 1,
+        "name": "srinu",
+        "contact": "9765215432",
+        "vehicle": "bike"
+    },
+    {
+        "id": 2,
+        "name": "ramesh",
+        "contact": "9732187653",
+        "vehicle": "bike"
+    },
+    {
+        "id": 3,
+        "name": "raju",
+        "contact": "9732174321",
+        "vehicle": "bike"
+    },
+    {
+        "id": 4,
+        "name": "raju",
+        "contact": "9732174321",
+        "vehicle": "bike"
+    },
+    {
+        "id": 5,
+        "name": "ramesh",
+        "mobile": "9876543210",
+        "vehicle": "bike"
+    },
+    {
+        "id": 6,
+        "name": "suresh",
+        "mobile": "9876543211",
+        "vehicle": "bike"
+    },
+    {
+        "id": 7,
+        "name": "suresh",
+        "mobile": "9876543563",
+        "vehicle": "bike"
+    },
+    {
+        "id": 8,
+        "name": "naresh",
+        "mobile": "9876543561",
+        "vehicle": "bike"
+    },
+    {
+        "id": 9,
+        "name": "gireesh",
+        "mobile": "9876453212",
+        "vehicle": "bike"
+    }
+]
