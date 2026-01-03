@@ -24,6 +24,7 @@ DELIVERY_CHARGE = 20
 UPLOAD_DIRECTORY = "uploads/orders"
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
+
 class OrderStatus(str, Enum):
     placed = "placed"
     preparing = "preparing"
@@ -36,22 +37,23 @@ class OrderItem(BaseModel):
     restaurant_name: str
     quantity: int
 
-def normalize_section(section: str) -> str:
-    return section.lower().replace(" ", "_")
+
+def normalize_section(section_name: str) -> str:
+    return section_name.lower().replace(" ", "_")
 
 
 def is_item_available_now(section_name: str, section_timings: dict) -> bool:
-    normalized_timings = {
-        normalize_section(key): value
-        for key, value in section_timings.items()
-    }
+    normalized_timings = {}
+
+    for section, timing in section_timings.items():
+        normalized_timings[normalize_section(section)] = timing
 
     if section_name not in normalized_timings:
         logger.info("Section %s missing in timings", section_name)
         return False
 
-    ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
-    current_time = ist_now.time()
+    ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+    current_time = ist_time.time()
 
     start_time = datetime.strptime(
         normalized_timings[section_name]["start"], "%H:%M"
@@ -60,11 +62,6 @@ def is_item_available_now(section_name: str, section_timings: dict) -> bool:
     end_time = datetime.strptime(
         normalized_timings[section_name]["end"], "%H:%M"
     ).time()
-
-    logger.info(
-        "Availability check | section=%s | now=%s | start=%s | end=%s",
-        section_name, current_time, start_time, end_time
-    )
 
     return start_time <= current_time <= end_time
 
@@ -78,17 +75,25 @@ def create_order(
     attachment: Optional[UploadFile] = File(None)
 ):
     try:
-        users_list = read_json(USERS_FILE)
-        restaurants_list = read_json(RESTAURANTS_FILE)
-        delivery_persons_list = read_json(DELIVERY_PERSONS_FILE)
-        orders_list = read_json(ORDERS_FILE)
+        users = read_json(USERS_FILE)
+        restaurants = read_json(RESTAURANTS_FILE)
+        delivery_persons = read_json(DELIVERY_PERSONS_FILE)
+        orders = read_json(ORDERS_FILE)
 
-        if not any(user["id"] == user_id for user in users_list):
+        user_found = False
+        for user in users:
+            if user["id"] == user_id:
+                user_found = True
+                break
+
+        if not user_found:
             return {"status": "error", "message": "User not found"}
 
         try:
-            items_list = json.loads(items)
-            validated_items: List[OrderItem] = [OrderItem(**item) for item in items_list]
+            items_data = json.loads(items)
+            validated_items: List[OrderItem] = [
+                OrderItem(**item) for item in items_data
+            ]
         except Exception:
             return {"status": "error", "message": "Invalid items format"}
 
@@ -96,29 +101,30 @@ def create_order(
         subtotal_amount = 0
 
         for order_item in validated_items:
-            selected_restaurant = next(
-                (r for r in restaurants_list
-                 if r["name"].lower() == order_item.restaurant_name.lower()),
-                None
-            )
+            restaurant_found = None
 
-            if not selected_restaurant:
+            for restaurant in restaurants:
+                if restaurant["name"].lower() == order_item.restaurant_name.lower():
+                    restaurant_found = restaurant
+                    break
+
+            if not restaurant_found:
                 return {
                     "status": "error",
                     "message": f"Restaurant {order_item.restaurant_name} not found"
                 }
 
-            item_found = False
+            item_matched = False
 
-            for raw_section, menu_items in selected_restaurant["menu"].items():
-                section_name = normalize_section(raw_section)
+            for section_key, menu_items in restaurant_found["menu"].items():
+                normalized_section = normalize_section(section_key)
 
                 for menu_item in menu_items:
                     if menu_item["name"].lower() == order_item.item_name.lower():
 
                         if not is_item_available_now(
-                            section_name,
-                            selected_restaurant.get("section_timings", {})
+                            normalized_section,
+                            restaurant_found.get("section_timings", {})
                         ):
                             return {
                                 "status": "error",
@@ -129,96 +135,96 @@ def create_order(
                         subtotal_amount += item_total
 
                         ordered_items.append({
-                            "restaurant_name": selected_restaurant["name"],
-                            "section": section_name,
+                            "restaurant_name": restaurant_found["name"],
+                            "section": normalized_section,
                             "item_name": menu_item["name"],
                             "price": menu_item["price"],
                             "quantity": order_item.quantity,
                             "item_total": item_total
                         })
 
-                        item_found = True
+                        item_matched = True
                         break
 
-                if item_found:
+                if item_matched:
                     break
 
-            if not item_found:
+            if not item_matched:
                 return {
                     "status": "error",
                     "message": f"{order_item.item_name} not found in {order_item.restaurant_name}"
                 }
 
         gst_amount = (subtotal_amount * GST_PERCENTAGE) / 100
-        final_amount = subtotal_amount + gst_amount + DELIVERY_CHARGE
-        assigned_delivery_person = random.choice(delivery_persons_list)
+        total_amount = subtotal_amount + gst_amount + DELIVERY_CHARGE
 
-        uploaded_file_details = None
+        assigned_delivery_person = random.choice(delivery_persons)
+
+        attachment_details = None
         if attachment:
-            saved_file_path = os.path.join(
+            saved_path = os.path.join(
                 UPLOAD_DIRECTORY,
-                f"{len(orders_list) + 1}_{attachment.filename}"
+                f"{len(orders) + 1}_{attachment.filename}"
             )
-            with open(saved_file_path, "wb") as buffer:
+
+            with open(saved_path, "wb") as buffer:
                 shutil.copyfileobj(attachment.file, buffer)
 
-            uploaded_file_details = {
+            attachment_details = {
                 "file_name": attachment.filename,
-                "file_path": saved_file_path,
+                "file_path": saved_path,
                 "content_type": attachment.content_type
             }
 
         new_order = {
-            "order_id": len(orders_list) + 1,
             "user_id": user_id,
             "items": ordered_items,
             "subtotal": subtotal_amount,
             "gst_percent": GST_PERCENTAGE,
             "gst_amount": gst_amount,
             "delivery_fee": DELIVERY_CHARGE,
-            "total_price": final_amount,
+            "total_price": total_amount,
             "status": OrderStatus.placed.value,
             "placed_time": get_current_time(),
             "preparing_time": None,
             "pick_up_time": None,
             "delivered_time": None,
             "delivery_person": assigned_delivery_person,
-            "attachment": uploaded_file_details
+            "attachment": attachment_details
         }
 
-        orders_list.append(new_order)
-        write_json(ORDERS_FILE, orders_list)
+        orders.append(new_order)
+        write_json(ORDERS_FILE, orders)
 
         logger.info("Order created successfully: %s", new_order["order_id"])
         return {"status": "success", "order": new_order}
 
-    except Exception as exception:
-        logger.error("Order creation failed: %s", str(exception), exc_info=True)
+    except Exception as error:
+        logger.error("Order creation failed: %s", str(error), exc_info=True)
         return {"status": "error", "message": "Internal server error"}
 
 
 @router.put("/{order_id}/status")
 def update_order_status(order_id: int, new_status: OrderStatus):
-    orders_list = read_json(ORDERS_FILE)
+    orders = read_json(ORDERS_FILE)
 
-    for order in orders_list:
+    for order in orders:
         if order["order_id"] == order_id:
-
             current_status = order["status"]
 
-            valid_flow = {
+            valid_status_flow = {
                 OrderStatus.placed.value: OrderStatus.preparing.value,
                 OrderStatus.preparing.value: OrderStatus.pick_up.value,
                 OrderStatus.pick_up.value: OrderStatus.delivered.value
             }
 
-            if current_status not in valid_flow:
+            if current_status not in valid_status_flow:
                 return {"status": "error", "message": "Invalid current order status"}
 
-            if valid_flow[current_status] != new_status.value:
+            if valid_status_flow[current_status] != new_status.value:
                 return {
                     "status": "error",
-                    "message": f"Only {current_status} → {valid_flow[current_status]} allowed"
+                    "message": f"Only {current_status} → {valid_status_flow[current_status]} allowed"
                 }
 
             current_time = get_current_time()
@@ -231,7 +237,7 @@ def update_order_status(order_id: int, new_status: OrderStatus):
                 order["delivered_time"] = current_time
 
             order["status"] = new_status.value
-            write_json(ORDERS_FILE, orders_list)
+            write_json(ORDERS_FILE, orders)
 
             return {"status": "success", "order": order}
 
@@ -245,8 +251,10 @@ def get_all_orders():
 
 @router.get("/{order_id}")
 def get_single_order(order_id: int):
-    orders_list = read_json(ORDERS_FILE)
-    for order in orders_list:
+    orders = read_json(ORDERS_FILE)
+
+    for order in orders:
         if order["order_id"] == order_id:
             return {"status": "success", "order": order}
+
     return {"status": "error", "message": "Order not found"}

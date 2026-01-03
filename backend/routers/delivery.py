@@ -8,8 +8,8 @@ router = APIRouter(prefix="/delivery", tags=["Delivery"])
 logger = get_logger("DeliveryAPI")
 
 DEL_FILE = "delivery_persons.json"
-UPLOAD_DIR = "uploads/delivery_profiles"
 
+UPLOAD_DIR = "uploads/delivery_profiles"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -18,45 +18,72 @@ def add_delivery_person(
     name: str = Form(...),
     mobile: str = Form(...),
     vehicle: str = Form(...),
+    password: str = Form(...),
     delivery_person_profile: UploadFile = File(...)
 ):
     logger.info("Adding delivery person: %s", name)
-    try:
-        if not is_valid_mobile(mobile):
-            logger.warning("Invalid mobile for delivery person: %s", mobile)
-            return {"status": "error", "message": "Invalid mobile number"}
 
-        persons = read_json(DEL_FILE)
+    if not is_valid_mobile(mobile):
+        return {"status": "error", "message": "Invalid mobile number"}
 
-        file_ext = os.path.splitext(delivery_person_profile.filename)[1]
-        file_name = f"delivery_{len(persons) + 1}{file_ext}"
-        file_path = os.path.join(UPLOAD_DIR, file_name)
+    persons = read_json(DEL_FILE)
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(delivery_person_profile.file, buffer)
+    for person in persons:
+        if person["mobile"] == mobile:
+            return {"status": "error", "message": "Delivery partner already exists"}
 
-        person = {
-            "id": len(persons) + 1,
-            "name": name,
-            "mobile": mobile,
-            "vehicle": vehicle,
-            "profile_picture": file_path
-        }
+    file_path = f"{UPLOAD_DIR}/{mobile}_{delivery_person_profile.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(delivery_person_profile.file, buffer)
 
-        persons.append(person)
-        write_json(DEL_FILE, persons)
+    data = {
+        "name": name,
+        "mobile": mobile,
+        "vehicle": vehicle,
+        "password": password,
+        "profile_picture": file_path
+    }
 
-        logger.info("Delivery person added: %s (ID: %d)", name, person["id"])
-        return {"status": "success", "delivery_person": person}
+    persons.append(data)
+    write_json(DEL_FILE, persons)
 
-    except Exception as e:
-        logger.error(
-            "Failed to add delivery person %s: %s",
-            name,
-            str(e),
-            exc_info=True
-        )
-        return {"status": "error", "message": "Internal server error"}
+    logger.info("Delivery person added successfully: %s", mobile)
+
+    return {
+        "status": "success",
+        "delivery_partner_id": data["id"]
+    }
+
+
+@router.post("/login")
+def delivery_login(
+    mobile: str = Form(...),
+    password: str = Form(...)
+):
+    logger.info("Delivery login attempt: %s", mobile)
+
+    persons = read_json(DEL_FILE)
+
+    for person in persons:
+        if person["mobile"] == mobile and person["password"] == password:
+            logger.info("Delivery login successful: %s", mobile)
+            return {
+                "status": "success",
+                "message": "Login successful",
+                "delivery_partner": {
+                    "id": person["id"],
+                    "name": person["name"],
+                    "mobile": person["mobile"],
+                    "vehicle": person["vehicle"],
+                    "profile_picture": person["profile_picture"]
+                }
+            }
+
+    logger.warning("Invalid delivery login for %s", mobile)
+    return {
+        "status": "error",
+        "message": "Invalid mobile or password"
+    }
 
 
 @router.get("/")
@@ -64,15 +91,14 @@ def get_all_delivery_persons():
     logger.info("Fetching all delivery persons")
     try:
         persons = read_json(DEL_FILE)
+
         if not persons:
-            logger.info("No delivery persons found")
             return {
                 "status": "success",
                 "delivery_persons": [],
                 "message": "No delivery persons available"
             }
 
-        logger.info("Retrieved %d delivery persons", len(persons))
         return {
             "status": "success",
             "count": len(persons),
