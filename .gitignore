@@ -1,0 +1,15 @@
+# Virtual environment
+backend/venv/
+
+# Python cache
+backend/__pycache__/
+backend/*.pyc
+
+# Logs
+backend/logs/
+
+# Uploads (optional)
+backend/uploads/
+
+# Environment variables
+backend/.env

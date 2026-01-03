@@ -1,0 +1,165 @@
+Base URL (example): http://localhost:8000
+
+1) API: Register User
+	 Method: POST
+	 URL: /users/register
+	 Frontend (axios) inputs: multipart/form-data (FormData)
+	 Fields:
+		 - name: string
+		 - email: string (valid email)
+		 - mobile: string (valid mobile format)
+		 - address: string
+		 - password: string
+		 - confirm_password: string (must match password)
+		 - profile_picture: file
+	 Example values:
+		 name: "Jane Doe"
+		 email: "jane.doe@example.com"
+		 mobile: "9876543210"
+		 address: "123 Main St, City"
+		 password: "StrongP@ssw0rd"
+		 confirm_password: "StrongP@ssw0rd"
+		 profile_picture: (file)
+	 Axios example:
+		 const form = new FormData();
+		 form.append('name', 'Jane Doe');
+		 form.append('email', 'jane.doe@example.com');
+		 form.append('mobile', '9876543210');
+		 form.append('address', '123 Main St, City');
+		 form.append('password', 'StrongP@ssw0rd');
+		 form.append('confirm_password', 'StrongP@ssw0rd');
+		 form.append('profile_picture', fileInput.files[0]);
+		 axios.post(`${BASE_URL}/users/register`, form, { headers: { 'Content-Type': 'multipart/form-data' }})
+
+2) API: Get All Users
+	 Method: GET
+	 URL: /users/
+	 Inputs: none
+	 Axios example: axios.get(`${BASE_URL}/users/`)
+
+3) API: Add Restaurant
+	 Method: POST
+	 URL: /restaurants/add
+	 Frontend inputs: multipart/form-data
+	 Fields:
+		 - name: string
+		 - address: string
+		 - contact: string
+		 - opening_time: string (HH:MM)
+		 - closing_time: string (HH:MM)
+		 - restaurant_pic: file
+	 Example values:
+		 name: "Novotel"
+		 address: "456 Food Lane"
+		 contact: "0123456789"
+		 opening_time: "07:00"
+		 closing_time: "23:00"
+		 restaurant_pic: (file)
+	 Axios example: use FormData and POST to `/restaurants/add` with multipart/form-data
+
+4) API: Add Menu Item
+	 Method: POST
+	 URL: /restaurants/{restaurant_id}/menu/add
+	 Frontend inputs: multipart/form-data
+	 Fields:
+		 - restaurant_id: path param (int)
+		 - item_name: string
+		 - price: number (float)
+		 - category: string (one of tiffins, starters, main_course, soft_drinks, desserts)
+		 - menu_item_pic: file
+	 Example values:
+		 restaurant_id: 1
+		 item_name: "Tiffin Special"
+		 price: 150.0
+		 category: "tiffins"
+		 menu_item_pic: (file)
+	 Axios example: POST to `/restaurants/1/menu/add` with FormData
+
+5) API: Get Menu
+	 Method: GET
+	 URL: /restaurants/{restaurant_id}/menu
+	 Inputs: path param restaurant_id
+	 Example: GET /restaurants/1/menu
+	 Axios: axios.get(`${BASE_URL}/restaurants/1/menu`)
+
+6) API: Get All Restaurants
+	 Method: GET
+	 URL: /restaurants/
+	 Inputs: none
+	 Axios: axios.get(`${BASE_URL}/restaurants/`)
+
+7) API: Delete Restaurant
+	 Method: DELETE
+	 URL: /restaurants/{restaurant_id}
+	 Inputs: path param restaurant_id
+	 Example: DELETE /restaurants/2
+	 Axios: axios.delete(`${BASE_URL}/restaurants/2`)
+
+8) API: Create Order
+	 Method: POST
+	 URL: /orders/create
+	 Frontend inputs: multipart/form-data (attachment optional)
+	 Fields:
+		 - user_id: int
+		 - items: string (JSON-stringified array of objects [{"item_name":"...","restaurant_name":"...","quantity":N}, ...])
+		 - attachment: file (optional)
+	 Example values:
+		 user_id: 1
+		 items: '[{"item_name":"Tiffin Special","restaurant_name":"Novotel","quantity":1}]'
+		 attachment: (optional file)
+	 Axios example:
+		 const form = new FormData();
+		 form.append('user_id', 1);
+		 form.append('items', JSON.stringify([{ item_name: 'Tiffin Special', restaurant_name: 'Novotel', quantity: 1 }]));
+		 form.append('attachment', optionalFile);
+		 axios.post(`${BASE_URL}/orders/create`, form, { headers: { 'Content-Type': 'multipart/form-data' }})
+
+9) API: Update Order Status
+	 Method: PUT
+	 URL: /orders/{order_id}/status
+	 Inputs:
+		 - order_id: path param (int)
+		 - new_status: query parameter (one of placed, preparing, pick_up, delivered)
+	 Note: `new_status` is sent as a query parameter (e.g. ?new_status=preparing)
+	 Example: PUT /orders/1/status?new_status=preparing
+	 Axios example: axios.put(`${BASE_URL}/orders/1/status`, null, { params: { new_status: 'preparing' } })
+
+10) API: Get All Orders
+		Method: GET
+		URL: /orders/
+		Inputs: none
+		Axios: axios.get(`${BASE_URL}/orders/`)
+
+11) API: Get Single Order
+		Method: GET
+		URL: /orders/{order_id}
+		Inputs: path param order_id
+		Example: axios.get(`${BASE_URL}/orders/1`)
+
+12) API: Add Delivery Person
+		Method: POST
+		URL: /delivery/add
+		Frontend inputs: multipart/form-data
+		Fields:
+			- name: string
+			- mobile: string
+			- vehicle: string
+			- delivery_person_profile: file
+		Example values:
+			name: "Ravi Kumar"
+			mobile: "9876501234"
+			vehicle: "Bike"
+			delivery_person_profile: (file)
+		Axios: use FormData and POST to `/delivery/add`
+
+13) API: Get All Delivery Persons
+		Method: GET
+		URL: /delivery/
+		Inputs: none
+		Axios: axios.get(`${BASE_URL}/delivery/`)
+
+Notes / Tips for frontend:
+ - For endpoints that upload files, use `FormData` and set header `Content-Type: multipart/form-data` (axios sets boundary automatically when you pass FormData).
+ - For `items` in order creation, send a JSON-stringified array as shown above.
+ - For `update order status`, include `new_status` as a query parameter when calling the PUT endpoint (e.g. axios.put(url, null, { params: { new_status: 'delivered' } })).
+
