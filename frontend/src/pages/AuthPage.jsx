@@ -93,8 +93,15 @@ const AuthPage = ({ setIsLoggedIn, setUserRole }) => {
 
     try {
       if (isLogin) {
-        const res = await api.get('/users/'); 
-        const user = res.data.find(u => u.email === formData.email && u.password === formData.password);
+                const data = new FormData();
+        data.append('email', formData.email);
+
+        data.append('password', formData.password);
+        const res = await api.post('/users/login/', data, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+}); 
+        const user = res.data;
+        console.log('response data user ', user);
 
         if (user) {
           console.log('Login successful for user:', user);

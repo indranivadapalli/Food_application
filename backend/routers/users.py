@@ -77,7 +77,7 @@ def login_user(
     password: str = Form(...)
 ):
     logger.info("Login attempt for %s", email)
-    user_exist, user = verify_user(email, password)
+    user_exist, user = verify_user(session=get_session, email=email, password=password)
     if user_exist:
         return {
             'status': 'success',
