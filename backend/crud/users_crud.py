@@ -1,5 +1,5 @@
-from models import User
-from database import get_session,engine
+from backend.database.models import User
+from backend.database.database import get_session,engine
 from sqlmodel import Session,select
 
 
