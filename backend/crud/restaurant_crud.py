@@ -21,9 +21,6 @@ def get_restaurant_with_menu(session: Session, restaurant_id: int):
         .options(selectinload(Restaurant.menus))
     )
     return session.exec(stmt).first()
-from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
-from models import Restaurant
 
 def get_restaurant(session: Session, restaurant_id: int):
     stmt = (
