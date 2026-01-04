@@ -23,29 +23,28 @@ def register_user(
     address: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
-    profile_picture: UploadFile = File(...)
+    role: str = Form(...),
+    profile_picture: UploadFile = File(None)
 ):
     logger.info("Registration started for %s", email)
 
-    users = read_json(USER_FILE)
+    
 
     if not is_valid_mobile(mobile):
         return {"status": "error", "message": "Invalid mobile number"}
 
-    for user in users:
-        if user["email"] == email:
-            return {"status": "error", "message": "User already registered"}
-
+    
     if password != confirm_password:
         return {"status": "error", "message": "Passwords do not match"}
 
     pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
     if not re.match(pattern, password):
         return {"status": "error", "message": "Weak password"}
-
-    file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
-    with open(file_path, "wb") as f:
-        shutil.copyfileobj(profile_picture.file, f)
+    file_path = None
+    if profile_picture and profile_picture.filename:
+        file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
+        with open(file_path, "wb") as f:
+            shutil.copyfileobj(profile_picture.file, f)
 
     user_data = {
         "name": name,
@@ -53,12 +52,16 @@ def register_user(
         "mobile": mobile,
         "address": address,
         "password": password,
+        "role":role,
         "profile_picture": file_path
     }
 
-    user =  create_user(session=get_session(), data=user_data)
+    user = create_user(session=get_session(), data=user_data)
 
+    if user == "exists":
+        return {"status": "error", "message": "User already registered with this email"}
 
+    return {"status": "success", "message": "User registered successfully", "user_id": user.id}
     # users.append(user_data)
     # write_json(USER_FILE, users)
 
@@ -67,30 +70,31 @@ def register_user(
     return {
         "status": "success",
         "message": "User registered successfully",
-        "user_id": user
+        "user_id": user.id if hasattr(user, 'id') else user
     }
 
 
 @router.post("/login")
 def login_user(
     email: EmailStr = Form(...),
-    password: str = Form(...)
+    password: str = Form(...),
+    role: str = Form(...)
 ):
-    logger.info("Login attempt for %s", email)
-    user_exist, user = verify_user(session=get_session, email=email, password=password)
+    logger.info("Login attempt for %s as role:%s", email,role)
+    user_exist, user = verify_user(session=get_session(), email=email, password=password,role=role)
     if user_exist:
         return {
             'status': 'success',
             'message': 'user login succesful',
-            'user': user
-
+            'user': user,
+            'role':role
         }
 
     else:
 
         return {
             "status": "error",
-            "message": "Invalid email or password"
+            "message": f"Account not found in {role} records."
         }
 
 
