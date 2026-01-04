@@ -13,6 +13,24 @@ def create_restaurant(session: Session, data: dict) -> Restaurant:
     session.commit()
     session.refresh(restaurant)
     return restaurant
+def verify_restaurant(session: Session, email: str, password: str):
+    try:
+        restaurant = session.exec(
+            select(Restaurant).where(
+                Restaurant.email == email,
+                Restaurant.password == password
+            )
+        ).first()
+
+        if not restaurant:
+            return False, {}
+
+        return True, restaurant
+
+    except Exception:
+        return False, {}
+
+        
 
 def get_restaurant_with_menu(session: Session, restaurant_id: int):
     stmt = (

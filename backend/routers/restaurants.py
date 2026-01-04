@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Form, File, UploadFile
+from pydantic import EmailStr
 from utils import read_json, write_json
-from crud.restaurant_crud  import create_restaurant
+from crud.restaurant_crud  import create_restaurant,verify_restaurant,
 from logger_config import get_logger
 from database.database import get_session
 import os
@@ -20,8 +21,11 @@ SECTIONS = ["tiffins", "starters", "main_course", "soft_drinks", "desserts"]
 @router.post("/add")
 def add_restaurant(
     name: str = Form(...),
+    email: EmailStr = Form(...),
     address: str = Form(...),
     contact: str = Form(...),
+    password: str = Form(...),
+    confirm_password: str = Form(...),
     restaurant_pic: UploadFile = File(...),
     tiffins_start: str = Form("07:00"),
     tiffins_end: str = Form("11:00"),
@@ -34,43 +38,74 @@ def add_restaurant(
     desserts_start: str = Form("07:00"),
     desserts_end: str = Form("23:00")
 ):
+    logger.info("Add restaurant started for %s", email)
     try:
-        logger.info("Add restaurant request received: %s", name)
-        restaurants = read_json(REST_FILE)
+        if password != confirm_password:
+            return {"status": "error", "message": "Passwords do not match"}
 
-        for restaurant in restaurants:
-            if restaurant["name"].lower() == name.lower():
-                logger.info("Restaurant already exists: %s", name)
-                return {"status": "error", "message": "Restaurant already exists"}
+        pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
+        with open(pic_path, "wb") as f:
+            f.write(restaurant_pic.file.read())
 
         section_timings = {
             "tiffins": {"start": tiffins_start, "end": tiffins_end},
             "starters": {"start": starters_start, "end": starters_end},
             "main_course": {"start": main_course_start, "end": main_course_end},
             "soft_drinks": {"start": soft_drinks_start, "end": soft_drinks_end},
-            "desserts": {"start": desserts_start, "end": desserts_end}
+            "desserts": {"start": desserts_start, "end": desserts_end},
         }
 
-        new_restaurant = {
+        restaurant_data = {
             "name": name,
+            "email": email,
             "address": address,
             "contact": contact,
-            "restaurant_pic": restaurant_pic.filename,
+            "password": password,
+            "restaurant_pic": pic_path,
             "menu": {section: [] for section in SECTIONS},
-            "section_timings": section_timings
+            "section_timings": section_timings,
         }
 
-       # restaurants.append(new_restaurant)
-        restaurant=create_restaurant(session=get_session,data=new_restaurant)
-       # write_json(REST_FILE, restaurants)
+        restaurant_id = create_restaurant(
+            session=get_session(), data=restaurant_data
+        )
 
-        logger.info("Restaurant added successfully: %s (ID: %s)", name, new_restaurant["id"])
-        return {"status": "success", "restaurant": new_restaurant}
+        logger.info("Restaurant registered successfully %s", restaurant_id)
+        return {
+            "status": "success",
+            "message": "Restaurant registered successfully",
+            "restaurant_id": restaurant_id,
+        }
 
-    except Exception as error:
-        logger.error("Add restaurant failed: %s", str(error), exc_info=True)
+    except Exception as e:
+        logger.error("Restaurant registration failed: %s", str(e), exc_info=True)
         return {"status": "error", "message": "Internal error"}
 
+
+@router.post("/login")
+def login_restaurant(
+    email: EmailStr = Form(...),
+    password: str = Form(...)
+):
+    logger.info("Restaurant login attempt for %s", email)
+    try:
+        restaurant_exist, restaurant = verify_restaurant(
+            session=get_session(), email=email, password=password
+        )
+
+        if restaurant_exist:
+            logger.info("Restaurant login successful for %s", email)
+            return {
+                "status": "success",
+                "message": "restaurant login successful",
+                "restaurant": restaurant,
+            }
+
+        return {"status": "error", "message": "Invalid email or password"}
+
+    except Exception as e:
+        logger.error("Restaurant login failed: %s", str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
 @router.post("/{restaurant_id}/menu/add")
 def add_menu_item(
     restaurant_id: int,

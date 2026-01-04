@@ -14,6 +14,7 @@ def create_user(session: Session, data: dict) -> User:
     session.add(user)
     session.commit()
     session.refresh(user)
+    print("user created")
     return user
 
 def get_user(session: Session, user_id: int):
