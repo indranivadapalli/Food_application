@@ -1,15 +1,22 @@
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 from database.models import User,Restaurant,DeliveryPartner
-def check_user_exists(session: Session, email: str):
-    for model in [User, Restaurant, DeliveryPartner]:
-        statement = select(model).where(model.email == email)
-        result = session.exec(statement).first()
-        if result:
-            return True
+def check_user_exists(session: Session, email: str,role:str):
+    role_map = {
+        "user": User,
+        "restaurant": Restaurant,
+        "delivery_person": DeliveryPartner
+    }
+    
+    target_model = role_map.get(role, User)
+    statement = select(target_model).where(target_model.email == email)
+    result = session.exec(statement).first()
+    if result:
+        return True
     return False
 def create_user(session: Session, data: dict) -> User:
-   if check_user_exists(session, data["email"]):
+   role = data.get("role", "user")
+   if check_user_exists(session, data["email"],role):
         return "exists"
    role = data.get("role", "user")
    if role == "restaurant":
@@ -78,8 +85,10 @@ def verify_user(session: Session, email: str, password: str, role: str):
 def get_all_users(session: Session):
     return session.exec(select(User)).all()
 
-def update_user(session: Session, user_id: int, data: dict):
-    user = session.get(User, user_id)
+def update_user(session: Session, user_id: int, data: dict,role:str="user"):
+    role_map = {"user": User, "restaurant": Restaurant, "delivery_person": DeliveryPartner}
+    target_model = role_map.get(role, User)
+    user = session.get(target_model, user_id)
     if not user:
         return None
 
@@ -90,8 +99,10 @@ def update_user(session: Session, user_id: int, data: dict):
     session.refresh(user)
     return user
 
-def delete_user(session: Session, user_id: int):
-    user = session.get(User, user_id)
+def delete_user(session: Session, user_id: int,role: str = "user"):
+    role_map = {"user": User, "restaurant": Restaurant, "delivery_person": DeliveryPartner}
+    target_model = role_map.get(role, User)
+    user = session.get(target_model, user_id)
     if not user:
         return False
 

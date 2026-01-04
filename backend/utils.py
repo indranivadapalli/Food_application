@@ -17,4 +17,4 @@ def get_current_time():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def is_valid_mobile(mobile: str):
-    return re.fullmatch(r"[6-9]\d{9}", mobile)
+    return bool(re.fullmatch(r"[6-9]\d{9}", mobile))
