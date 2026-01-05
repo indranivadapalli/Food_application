@@ -34,7 +34,7 @@ def get_delivery_partner(session: Session, partner_id: int) -> Optional[Delivery
     return session.get(DeliveryPartner, partner_id)
 
 def verify_delivery_partner(session: Session, email: str, password: str):
-    """Verify delivery partner credentials"""
+
     try:
         partner = session.exec(
             select(DeliveryPartner).where(
@@ -104,7 +104,6 @@ def get_partner_orders(session: Session, partner_id: int):
     return session.exec(stmt).first()
 
 def mark_delivered(session: Session, order_id: int) -> Optional[Order]:
-    """Mark order as delivered and make partner available"""
     order = update_order_status(session, order_id, "DELIVERED")
 
     if order and order.delivery_partner:

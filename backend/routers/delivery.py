@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Form, UploadFile, File, Depends, HTTPException
 from sqlmodel import Session
-from database.db import get_session
+from database.database import get_session
 from crud.delivery_crud import (
     check_delivery_partner_exists,
     create_delivery_partner,
