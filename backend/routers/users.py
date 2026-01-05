@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Form, UploadFile, File
 from pydantic import EmailStr
 from utils import read_json, write_json, is_valid_mobile
-from crud.users_crud import create_user, get_user, verify_user,get_all_users,update_user,delete_user
+from crud.users_crud import check_user_exists, create_user, get_user, verify_user,get_all_users,update_user,delete_user
 from logger_config import get_logger
 import os, shutil, re
 from database.database import get_session
+from sqlmodel import Session  # Added Session type
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = get_logger("UsersAPI")
@@ -23,41 +24,26 @@ def register_user(
     address: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
-<<<<<<< HEAD
-    profile_picture: UploadFile | None = File(None)
-):
-    logger.info("Registration started for %s", email)
-
-    if not is_valid_mobile(mobile):
-        return {"status": "error", "message": "Invalid mobile number"}
-
-=======
     role: str = Form(...),
-    profile_picture: UploadFile = File(None)
+    profile_picture: UploadFile = File(None),
+    session: Session = Depends(get_session) # Use dependency injection
 ):
-    logger.info("Registration started for %s", email)
-
-    
+    logger.info("Registration started for %s with role: %s", email, role)
 
     if not is_valid_mobile(mobile):
         return {"status": "error", "message": "Invalid mobile number"}
 
-    
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
     if password != confirm_password:
         return {"status": "error", "message": "Passwords do not match"}
 
+    # Password validation pattern
     pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
     if not re.match(pattern, password):
         return {"status": "error", "message": "Weak password"}
-<<<<<<< HEAD
 
-    file_path = None
-    if profile_picture:
-=======
+    # File saving logic
     file_path = None
     if profile_picture and profile_picture.filename:
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
         file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
         with open(file_path, "wb") as f:
             shutil.copyfileobj(profile_picture.file, f)
@@ -68,56 +54,42 @@ def register_user(
         "mobile": mobile,
         "address": address,
         "password": password,
-        "role":role,
+        
         "profile_picture": file_path
     }
-
-<<<<<<< HEAD
-    session = get_session()
-    user = create_user(session=session, data=user_data)
-
-    logger.info("User registered successfully %s", user.id)
-=======
-    user = create_user(session=get_session(), data=user_data)
-
-    if user == "exists":
+    
+    if check_user_exists(session, email, role):
         return {"status": "error", "message": "User already registered with this email"}
 
-    return {"status": "success", "message": "User registered successfully", "user_id": user.id}
+    # Pass the session from Depends to create_user
+    user = create_user(session=session, data=user_data)
+
+
+    logger.info(f"User registered successfully {user}")
+
+    return {"status": "success", "message": "User registered successfully", "user": user}
     # users.append(user_data)
     # write_json(USER_FILE, users)
 
-    logger.info(f"User registered successfully {user}")
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
 
-    return {
-        "status": "success",
-        "message": "User registered successfully",
-<<<<<<< HEAD
-        "user_id": user.id
-=======
-        "user_id": user.id if hasattr(user, 'id') else user
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
-    }
 
 
 @router.post("/login")
 def login_user(
     email: EmailStr = Form(...),
     password: str = Form(...),
-    role: str = Form(...)
+    role: str = Form(...),
+    session: Session = Depends(get_session) # Use dependency injection
 ):
-<<<<<<< HEAD
-    logger.info("Login attempt for %s", email)
-    user_exist, user = verify_user(session=get_session(), email=email, password=password)
-=======
-    logger.info("Login attempt for %s as role:%s", email,role)
-    user_exist, user = verify_user(session=get_session(), email=email, password=password,role=role)
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
+    logger.info("Login attempt for %s as role:%s", email, role)
+    
+    # Pass the session to verify_user
+    user_exist, user = verify_user(session=session, email=email, password=password, role=role)
+    
     if user_exist:
         return {
             'status': 'success',
-            'message': 'user login succesful',
+            'message': 'Login successful',
             'user': user,
             'role':role
         }

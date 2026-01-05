@@ -1,31 +1,22 @@
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 from database.models import User,Restaurant,DeliveryPartner
-def check_user_exists(session: Session, email: str):
-    for model in [User, Restaurant, DeliveryPartner]:
+def check_user_exists(session: Session, email: str, role: str):
+    if role == 'user':
+        model = User
+    if role == 'restaurant':
+        model = Restaurant
+    if role == 'delivery':
+        model = DeliveryPartner
+
+    if model:
         statement = select(model).where(model.email == email)
         result = session.exec(statement).first()
         if result:
             return True
     return False
 def create_user(session: Session, data: dict) -> User:
-<<<<<<< HEAD
-    user = User(
-        name=data["name"],
-        email=data["email"],
-        mobile=data["mobile"],
-        password=data["password"],
-        address=data["address"],
-        profile_picture=data.get("profile_picture") 
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    print("user created")
-    return user
-=======
-   if check_user_exists(session, data["email"]):
-        return "exists"
+
    role = data.get("role", "user")
    if role == "restaurant":
         new_entry = Restaurant(
@@ -58,7 +49,6 @@ def create_user(session: Session, data: dict) -> User:
    session.commit()
    session.refresh(new_entry)
    return new_entry
->>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
 
 def get_user(session: Session, user_id: int,role:str="user"):
     if role == "restaurant": return session.get(Restaurant, user_id)
