@@ -31,7 +31,6 @@ def create_delivery_partner(session: Session, data: dict) -> DeliveryPartner:
     return partner
 
 def get_delivery_partner(session: Session, partner_id: int) -> Optional[DeliveryPartner]:
-    """Get delivery partner by ID"""
     return session.get(DeliveryPartner, partner_id)
 
 def verify_delivery_partner(session: Session, email: str, password: str):

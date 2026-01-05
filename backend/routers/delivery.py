@@ -37,7 +37,6 @@ def add_delivery_person(
         logger.warning("Delivery partner already exists: %s", email)
         return {"status": "error", "message": "Delivery partner with this email already exists"}
 
-    # Handle file upload if provided
     file_path = None
     if delivery_person_profile:
         file_path = f"{UPLOAD_DIR}/{email}_{delivery_person_profile.filename}"
