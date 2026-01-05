@@ -7,7 +7,7 @@ import os, shutil, re
 from utils import read_json, write_json, is_valid_mobile
 from database.database import get_session
 from sqlmodel import Session  # Added Session type
-from sqlmodel import Session  # Added Session type
+
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = get_logger("UsersAPI")
@@ -20,9 +20,9 @@ def register_user(
     name: str = Form(...),
     email: EmailStr = Form(...),
     mobile: str = Form(...),
-    address: str = Form(...),
+    address: str = Form(None),
     password: str = Form(...),
-    confirm_password: str = Form(...),
+    confirm_password: str = Form(None),
     role: str = Form(...),
     profile_picture: UploadFile = File(None),
     session: Session = Depends(get_session) # Use dependency injection
@@ -35,8 +35,8 @@ def register_user(
         return {"status": "error", "message": "Invalid mobile number"}
 
 
-    if password != confirm_password:
-        return {"status": "error", "message": "Passwords do not match"}
+    # if password != confirm_password:
+    #     return {"status": "error", "message": "Passwords do not match"}
 
     # Password validation pattern
     # Password validation pattern

@@ -20,10 +20,11 @@ const RestaurantDashboard = ({ onLogout }) => {
   // State for adding new items to categories defined in your backend
   const [newItem, setNewItem] = useState({ name: '', price: '', category: 'main_course' });
 
-  const [userData] = useState(() => {
+  const [userData, setUserData] = useState({'user': () => {
+
     const savedUser = localStorage.getItem('currentUser');
     return savedUser ? JSON.parse(savedUser) : null;
-  });
+  }});
 
   const SECTIONS = ["tiffins", "starters", "main_course", "soft_drinks", "desserts"];
 

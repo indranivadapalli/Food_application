@@ -9,7 +9,7 @@ def create_restaurant(session: Session, data: dict) -> Restaurant:
         email=data["email"],
         password=data["password"],
         address=data["address"],
-        contact=data["contact"],
+        mobile=data["mobile"],
         restaurant_pic=data.get("restaurant_pic")
     )
     session.add(restaurant)

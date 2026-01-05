@@ -48,7 +48,7 @@ const AuthPage = () => {
     
     formData.append('email', e.target.email.value);
     formData.append('password', password);
-
+      formData.append('role', currentRole);
     if (!isLogin) {
       // Validate password match
       if (password !== confirmPassword) {

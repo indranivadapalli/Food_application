@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form, File, UploadFile
+from fastapi import APIRouter, Form, File, UploadFile,Depends
 from pydantic import EmailStr
 from crud.restaurant_crud import (
     create_restaurant,
@@ -11,6 +11,7 @@ from crud.restaurant_crud import (
 from logger_config import get_logger
 from database.database import get_session
 import os
+from sqlmodel import Session
 
 router = APIRouter(prefix="/restaurants", tags=["Restaurants"])
 logger = get_logger("RestaurantsAPI")
@@ -23,30 +24,32 @@ def register_restaurant(
     name: str = Form(...),
     email: EmailStr = Form(...),
     address: str = Form(...),
-    contact: str = Form(...),
+    mobile: str = Form(...),
     password: str = Form(...),
-    confirm_password: str = Form(...),
-    restaurant_pic: UploadFile = File(...)
+    confirm_password: str = Form(None),
+    restaurant_pic: UploadFile = File(None),
+    session: Session = Depends(get_session)
 ):
     logger.info("Restaurant registration started for %s", email)
 
     try:
-        if password != confirm_password:
-            return {"status": "error", "message": "Passwords do not match"}
+     #   if password != confirm_password:
+       #     return {"status": "error", "message": "Passwords do not match"}
+        if restaurant_pic:
 
-        pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
-        with open(pic_path, "wb") as f:
-            f.write(restaurant_pic.file.read())
+            pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
+            with open(pic_path, "wb") as f:
+                f.write(restaurant_pic.file.read())
 
         restaurant = create_restaurant(
-            session=get_session(),
+            session=session,
             data={
                 "name": name,
                 "email": email,
                 "password": password,
                 "address": address,
-                "contact": contact,
-                "restaurant_pic": pic_path
+                "mobile": mobile,
+                "restaurant_pic": pic_path if restaurant_pic else None
             }
         )
 
@@ -63,12 +66,13 @@ def register_restaurant(
 @router.post("/login")
 def login_restaurant(
     email: EmailStr = Form(...),
-    password: str = Form(...)
+    password: str = Form(...),
+    session: Session = Depends(get_session)
 ):
     logger.info("Restaurant login attempt: %s", email)
 
     success, restaurant = verify_restaurant(
-        session=get_session(),
+        session,
         email=email,
         password=password
     )
@@ -88,7 +92,8 @@ def update_restaurant(
     address: str = Form(None),
     contact: str = Form(None),
     password: str = Form(None),
-    restaurant_pic: UploadFile = File(None)
+    restaurant_pic: UploadFile = File(None),
+    session: Session = Depends(get_session)
 ):
     logger.info("Update restaurant request: %s", restaurant_id)
 
@@ -124,9 +129,9 @@ def update_restaurant(
         return {"status": "error", "message": "Internal error"}
 
 @router.get("/{restaurant_id}")
-def get_single_restaurant(restaurant_id: int):
+def get_single_restaurant(restaurant_id: int, session: Session = Depends(get_session)):
     restaurant = get_restaurant(
-        session=get_session(),
+        session=session,
         restaurant_id=restaurant_id
     )
 
@@ -136,14 +141,14 @@ def get_single_restaurant(restaurant_id: int):
     return {"status": "success", "restaurant": restaurant}
 
 @router.get("/")
-def fetch_all_restaurants():
-    restaurants = get_all_restaurants(session=get_session())
+def fetch_all_restaurants(session: Session = Depends(get_session)):
+    restaurants = get_all_restaurants(session)
     return {"status": "success", "restaurants": restaurants}
 
 @router.delete("/{restaurant_id}")
-def delete_restaurant(restaurant_id: int):
+def delete_restaurant(restaurant_id: int, session: Session = Depends(get_session)):
     success = delete_restaurant_db(
-        session=get_session(),
+        session=session,
         restaurant_id=restaurant_id
     )
 
