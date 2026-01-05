@@ -14,3 +14,5 @@ backend/uploads/
 
 # Environment variables
 backend/.env
+
+frontend/node_moduels

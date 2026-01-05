@@ -23,6 +23,7 @@ def register_user(
     address: str = Form(...),
     password: str = Form(...),
     confirm_password: str = Form(...),
+<<<<<<< HEAD
     profile_picture: UploadFile | None = File(None)
 ):
     logger.info("Registration started for %s", email)
@@ -30,15 +31,33 @@ def register_user(
     if not is_valid_mobile(mobile):
         return {"status": "error", "message": "Invalid mobile number"}
 
+=======
+    role: str = Form(...),
+    profile_picture: UploadFile = File(None)
+):
+    logger.info("Registration started for %s", email)
+
+    
+
+    if not is_valid_mobile(mobile):
+        return {"status": "error", "message": "Invalid mobile number"}
+
+    
+>>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
     if password != confirm_password:
         return {"status": "error", "message": "Passwords do not match"}
 
     pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
     if not re.match(pattern, password):
         return {"status": "error", "message": "Weak password"}
+<<<<<<< HEAD
 
     file_path = None
     if profile_picture:
+=======
+    file_path = None
+    if profile_picture and profile_picture.filename:
+>>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
         file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
         with open(file_path, "wb") as f:
             shutil.copyfileobj(profile_picture.file, f)
@@ -49,41 +68,65 @@ def register_user(
         "mobile": mobile,
         "address": address,
         "password": password,
+        "role":role,
         "profile_picture": file_path
     }
 
+<<<<<<< HEAD
     session = get_session()
     user = create_user(session=session, data=user_data)
 
     logger.info("User registered successfully %s", user.id)
+=======
+    user = create_user(session=get_session(), data=user_data)
+
+    if user == "exists":
+        return {"status": "error", "message": "User already registered with this email"}
+
+    return {"status": "success", "message": "User registered successfully", "user_id": user.id}
+    # users.append(user_data)
+    # write_json(USER_FILE, users)
+
+    logger.info(f"User registered successfully {user}")
+>>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
 
     return {
         "status": "success",
         "message": "User registered successfully",
+<<<<<<< HEAD
         "user_id": user.id
+=======
+        "user_id": user.id if hasattr(user, 'id') else user
+>>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
     }
 
 
 @router.post("/login")
 def login_user(
     email: EmailStr = Form(...),
-    password: str = Form(...)
+    password: str = Form(...),
+    role: str = Form(...)
 ):
+<<<<<<< HEAD
     logger.info("Login attempt for %s", email)
     user_exist, user = verify_user(session=get_session(), email=email, password=password)
+=======
+    logger.info("Login attempt for %s as role:%s", email,role)
+    user_exist, user = verify_user(session=get_session(), email=email, password=password,role=role)
+>>>>>>> 9e1394df1b33f8d5754e75fcb1da7bac626c5879
     if user_exist:
         return {
             'status': 'success',
             'message': 'user login succesful',
-            'user': user
-
+            'user': user,
+            'role':role
         }
 
     else:
 
         return {
             "status": "error",
-            "message": "Invalid email or password"
+            "message": f"Account not found in {role} records."
         }
 @router.put("/update/{user_id}")
 def update_user_api(
