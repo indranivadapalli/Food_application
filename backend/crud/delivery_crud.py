@@ -5,7 +5,6 @@ from database.models import DeliveryPartner, Order, User, Restaurant
 from crud.orders_crud import update_order_status
 
 def check_delivery_partner_exists(session: Session, email: str) -> bool:
-    """Check if delivery partner exists by email"""
     try:
         statement = select(DeliveryPartner).where(DeliveryPartner.email == email)
         result = session.exec(statement).first()
