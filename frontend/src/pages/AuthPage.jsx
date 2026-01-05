@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react'; // Added useRef and useEffect
+import React, { useState, useRef, useEffect } from 'react'; 
 import { Box, Paper, Tabs, Tab, TextField, Button, Typography, Alert, Stack, InputAdornment } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Tick icon for matching passwords
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'; 
 import { api } from '../api'; 
 import { useNavigate } from 'react-router-dom';
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const errorRef = useRef(null); // Reference for autoscrolling
+  const errorRef = useRef(null); 
   const [roleIdx, setRoleIdx] = useState(0); 
   const [isLogin, setIsLogin] = useState(true);
   const [password, setPassword] = useState('');
@@ -15,7 +15,6 @@ const AuthPage = () => {
   
   const roles = ['user', 'restaurant', 'delivery_person'];
 
-  // Validation logic: requirements turn green when met
   const v = {
     len: password.length >= 8,
     upper: /[A-Z]/.test(password),
@@ -24,10 +23,9 @@ const AuthPage = () => {
     special: /[!@#$%^&*]/.test(password)
   };
 
-  // Check if passwords match for the tick icon logic
+
   const passwordsMatch = password.length > 0 && password === confirmPassword;
 
-  // Autoscroll logic: triggers whenever the 'error' state changes
   useEffect(() => {
     if (error && errorRef.current) {
       errorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -40,7 +38,6 @@ const AuthPage = () => {
     const formData = new FormData();
     const currentRole = roles[roleIdx];
     
-    // Original console logs preserved
     formData.append('role', currentRole);
     console.log("Sending Role:", currentRole);
     
@@ -108,8 +105,6 @@ const AuthPage = () => {
           }} centered sx={{ mb: 2 }}>
           <Tab label="USER" /><Tab label="RESTAURANT" /><Tab label="DELIVERY" />
         </Tabs>
-
-        {/* Added Box with ref around the Alert for scrolling */}
         {error && (
           <Box ref={errorRef} sx={{ mb: 2 }}>
             <Alert severity="error">{error}</Alert>

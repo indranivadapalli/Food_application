@@ -2,7 +2,6 @@ from typing import Optional, List
 from datetime import datetime, time
 from sqlmodel import SQLModel, Field, Relationship
 
-# --- USER TABLE ---
 class User(SQLModel, table=True):
     __tablename__ = "users"
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -15,7 +14,6 @@ class User(SQLModel, table=True):
     profile_picture: Optional[str] = None
     orders: List["Order"] = Relationship(back_populates="user")
 
-# --- RESTAURANT TABLE ---
 class Restaurant(SQLModel, table=True):
     __tablename__ = "restaurants"
     id: Optional[int] = Field(default=None, primary_key=True)
