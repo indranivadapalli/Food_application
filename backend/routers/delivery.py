@@ -19,45 +19,56 @@ UPLOAD_DIR = "uploads/delivery_profiles"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-@router.post("/add")
-def add_delivery_person(
+@router.post("/register")
+async def register_delivery_partner(
     name: str = Form(...),
     email: str = Form(...),
     mobile: str = Form(...),
-    vehicle: str = Form(...),
     password: str = Form(...),
-    address: str = Form(...),
+    address: str = Form(default="N/A"),  # Provide default
+    vehicle: str = Form(default="Bike"),  # Provide default
     delivery_person_profile: UploadFile = File(None),
     session: Session = Depends(get_session)
 ):
-    logger.info("Adding delivery person: %s", name)
-
-    # Check if delivery partner already exists
-    if check_delivery_partner_exists(session, email):
-        logger.warning("Delivery partner already exists: %s", email)
-        return {"status": "error", "message": "Delivery partner with this email already exists"}
-
-    file_path = None
-    if delivery_person_profile:
-        file_path = f"{UPLOAD_DIR}/{email}_{delivery_person_profile.filename}"
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(delivery_person_profile.file, buffer)
-
-    # Prepare data for creation
-    data = {
-        "name": name,
-        "email": email,
-        "mobile": mobile,
-        "vehicle": vehicle,
-        "password": password,
-        "address": address,
-        "profile_picture": file_path
-    }
+    logger.info("Registering delivery partner: %s", email)
 
     try:
+        # Check if delivery partner already exists
+        if check_delivery_partner_exists(session, email):
+            logger.warning("Delivery partner already exists: %s", email)
+            return {
+                "status": "error", 
+                "message": "Delivery partner with this email already exists"
+            }
+
+        # Handle file upload if provided and has actual content
+        file_path = None
+        if delivery_person_profile and delivery_person_profile.filename:
+            # Check if file has actual content (not empty Blob)
+            content = await delivery_person_profile.read()
+            if len(content) > 0:
+                # Save the file
+                file_path = f"{UPLOAD_DIR}/{email.replace('@', '_').replace('.', '_')}_{delivery_person_profile.filename}"
+                with open(file_path, "wb") as buffer:
+                    buffer.write(content)
+                logger.info("Profile picture saved: %s", file_path)
+            else:
+                logger.info("Empty file received, skipping upload")
+
+        # Prepare data for creation with correct field name
+        data = {
+            "name": name,
+            "email": email,
+            "mobile": mobile,
+            "vehicle": vehicle if vehicle else "Bike",
+            "password": password,
+            "address": address if address else "N/A",
+            "delivery_person_profile": file_path  # Use correct field name
+        }
+
         # Create delivery partner
         partner = create_delivery_partner(session, data)
-        logger.info("Delivery person added successfully: %s", email)
+        logger.info("Delivery partner registered successfully: %s", email)
 
         return {
             "status": "success",
@@ -69,16 +80,39 @@ def add_delivery_person(
                 "email": partner.email,
                 "mobile": partner.mobile,
                 "vehicle": partner.vehicle,
-                "profile_picture": partner.delivery_person_profile
+                "address": partner.address,
+                "profile_picture": partner.delivery_person_profile,
+                "is_available": partner.is_available
             }
         }
     except Exception as e:
-        logger.error("Failed to add delivery person: %s", str(e), exc_info=True)
-        return {"status": "error", "message": "Failed to register delivery partner"}
+        logger.error("Failed to register delivery partner: %s", str(e), exc_info=True)
+        return {
+            "status": "error", 
+            "message": f"Failed to register delivery partner: {str(e)}"
+        }
+
+
+@router.post("/add")
+async def add_delivery_person(
+    name: str = Form(...),
+    email: str = Form(...),
+    mobile: str = Form(...),
+    vehicle: str = Form(default="Bike"),
+    password: str = Form(...),
+    address: str = Form(default="N/A"),
+    delivery_person_profile: UploadFile = File(None),
+    session: Session = Depends(get_session)
+):
+    """Alias for /register endpoint"""
+    return await register_delivery_partner(
+        name, email, mobile, password, address, vehicle, 
+        delivery_person_profile, session
+    )
 
 
 @router.post("/login")
-def delivery_login(
+async def delivery_login(
     email: str = Form(...),
     password: str = Form(...),
     session: Session = Depends(get_session)
@@ -117,7 +151,7 @@ def delivery_login(
 
 
 @router.get("/")
-def get_all_delivery_persons(session: Session = Depends(get_session)):
+async def get_all_delivery_persons(session: Session = Depends(get_session)):
     logger.info("Fetching all delivery persons")
     try:
         partners = get_all_delivery_partners(session)
@@ -157,7 +191,7 @@ def get_all_delivery_persons(session: Session = Depends(get_session)):
 
 
 @router.get("/{partner_id}")
-def get_delivery_person(
+async def get_delivery_person(
     partner_id: int,
     session: Session = Depends(get_session)
 ):

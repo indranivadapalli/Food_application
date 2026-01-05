@@ -20,9 +20,9 @@ def create_delivery_partner(session: Session, data: dict) -> DeliveryPartner:
         email=data["email"],
         mobile=data["mobile"],
         password=data["password"],
-        address=data.get("address", ""),
-        vehicle=data.get("vehicle", ""),
-        delivery_person_profile=data.get("profile_picture"),  
+        address=data.get("address", "N/A"),  # Match model default
+        vehicle=data.get("vehicle", "Bike"),  # Match model default
+        delivery_person_profile=data.get("delivery_person_profile"),  # Use correct field name
         is_available=True
     )
     session.add(partner)
@@ -34,7 +34,6 @@ def get_delivery_partner(session: Session, partner_id: int) -> Optional[Delivery
     return session.get(DeliveryPartner, partner_id)
 
 def verify_delivery_partner(session: Session, email: str, password: str):
-
     try:
         partner = session.exec(
             select(DeliveryPartner).where(
