@@ -1,20 +1,19 @@
-from fastapi import APIRouter, Form, UploadFile, File
+from fastapi import APIRouter, Form, UploadFile, File, Depends  # Added Depends
 from pydantic import EmailStr
 from utils import read_json, write_json, is_valid_mobile
 from crud.users_crud import check_user_exists, create_user, get_user, verify_user,get_all_users,update_user,delete_user
 from logger_config import get_logger
 import os, shutil, re
+from utils import read_json, write_json, is_valid_mobile
 from database.database import get_session
+from sqlmodel import Session  # Added Session type
 from sqlmodel import Session  # Added Session type
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = get_logger("UsersAPI")
 
-USER_FILE = "users.json"
-
 UPLOAD_DIR = "uploads/profile_pictures"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 @router.post("/register")
 def register_user(
@@ -27,19 +26,26 @@ def register_user(
     role: str = Form(...),
     profile_picture: UploadFile = File(None),
     session: Session = Depends(get_session) # Use dependency injection
+    profile_picture: UploadFile = File(None),
+    session: Session = Depends(get_session) # Use dependency injection
 ):
+    logger.info("Registration started for %s with role: %s", email, role)
     logger.info("Registration started for %s with role: %s", email, role)
 
     if not is_valid_mobile(mobile):
         return {"status": "error", "message": "Invalid mobile number"}
 
+
     if password != confirm_password:
         return {"status": "error", "message": "Passwords do not match"}
 
     # Password validation pattern
+    # Password validation pattern
     pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
     if not re.match(pattern, password):
         return {"status": "error", "message": "Weak password"}
+
+    # File saving logic
 
     # File saving logic
     file_path = None
@@ -73,14 +79,20 @@ def register_user(
 
 
 
-
 @router.post("/login")
 def login_user(
     email: EmailStr = Form(...),
     password: str = Form(...),
     role: str = Form(...),
     session: Session = Depends(get_session) # Use dependency injection
+    role: str = Form(...),
+    session: Session = Depends(get_session) # Use dependency injection
 ):
+    logger.info("Login attempt for %s as role:%s", email, role)
+    
+    # Pass the session to verify_user
+    user_exist, user = verify_user(session=session, email=email, password=password, role=role)
+    
     logger.info("Login attempt for %s as role:%s", email, role)
     
     # Pass the session to verify_user
@@ -90,12 +102,11 @@ def login_user(
         return {
             'status': 'success',
             'message': 'Login successful',
+            'message': 'Login successful',
             'user': user,
-            'role':role
+            'role': role
         }
-
     else:
-
         return {
             "status": "error",
             "message": f"Account not found in {role} records."

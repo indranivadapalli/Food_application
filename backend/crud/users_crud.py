@@ -6,7 +6,7 @@ def check_user_exists(session: Session, email: str, role: str):
         model = User
     if role == 'restaurant':
         model = Restaurant
-    if role == 'delivery':
+    if role == 'delivery_person':
         model = DeliveryPartner
 
     if model:
@@ -84,8 +84,10 @@ def verify_user(session: Session, email: str, password: str, role: str):
 def get_all_users(session: Session):
     return session.exec(select(User)).all()
 
-def update_user(session: Session, user_id: int, data: dict):
-    user = session.get(User, user_id)
+def update_user(session: Session, user_id: int, data: dict,role:str="user"):
+    role_map = {"user": User, "restaurant": Restaurant, "delivery_person": DeliveryPartner}
+    target_model = role_map.get(role, User)
+    user = session.get(target_model, user_id)
     if not user:
         return None
 
@@ -96,8 +98,10 @@ def update_user(session: Session, user_id: int, data: dict):
     session.refresh(user)
     return user
 
-def delete_user(session: Session, user_id: int):
-    user = session.get(User, user_id)
+def delete_user(session: Session, user_id: int,role: str = "user"):
+    role_map = {"user": User, "restaurant": Restaurant, "delivery_person": DeliveryPartner}
+    target_model = role_map.get(role, User)
+    user = session.get(target_model, user_id)
     if not user:
         return False
 
