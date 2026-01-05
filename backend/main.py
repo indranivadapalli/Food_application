@@ -1,30 +1,23 @@
 from fastapi import FastAPI
-from routers import users, restaurants, delivery, orders
 from database.database import create_db_and_tables
-
-from database.database import create_db_and_tables
-
 from fastapi.middleware.cors import CORSMiddleware
+from routers.delivery import router as delivery_router
+from routers.users import router as users_router
+from routers.restaurants import router as restaurants_router
 
-app = FastAPI(title="Food Delivery App")
-
-# Allowed origins (React frontend)
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+app = FastAPI()
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,       
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],         
-    allow_headers=["*"],          
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.include_router(users.router)
-app.include_router(restaurants.router)
-app.include_router(delivery.router)
-app.include_router(orders.router)
-
-create_db_and_tables()
+app.include_router(delivery_router)
+app.include_router(users_router)
+app.include_router(restaurants_router)
