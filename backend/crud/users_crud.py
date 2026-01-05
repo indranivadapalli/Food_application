@@ -15,9 +15,9 @@ def check_user_exists(session: Session, email: str, role: str):
         if result:
             return True
     return False
-def create_user(session: Session, data: dict) -> User:
+def create_user(session: Session, data: dict, role:str) -> User:
 
-   role = data.get("role", "user")
+#    role = data.get("role", "user")
    if role == "restaurant":
         new_entry = Restaurant(
             name=data["name"],

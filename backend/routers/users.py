@@ -67,7 +67,7 @@ def register_user(
         return {"status": "error", "message": "User already registered with this email"}
 
     # Pass the session from Depends to create_user
-    user = create_user(session=session, data=user_data)
+    user = create_user(session=session, data=user_data, role=role)
 
 
     logger.info(f"User registered successfully {user}")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Form, File, UploadFile
 from pydantic import EmailStr
 from utils import read_json, write_json
-from crud.restaurant_crud  import create_restaurant,verify_restaurant,
+from crud.restaurant_crud  import create_restaurant,verify_restaurant
 from logger_config import get_logger
 from database.database import get_session
 import os
