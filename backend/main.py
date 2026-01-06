@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers.delivery import router as delivery_router
 from routers.users import router as users_router
 from routers.restaurants import router as restaurants_router
+from routers.orders import router as orders_router
+from routers.menu import router as menu_router
+from routers.category import router as category_router
 
 app = FastAPI()
 @app.on_event("startup")
@@ -21,3 +24,6 @@ app.add_middleware(
 app.include_router(delivery_router)
 app.include_router(users_router)
 app.include_router(restaurants_router)
+app.include_router(orders_router)
+app.include_router(menu_router)
+app.include_router(category_router)

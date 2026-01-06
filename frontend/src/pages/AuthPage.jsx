@@ -23,6 +23,7 @@ const AuthPage = () => {
     special: /[!@#$%^&*]/.test(password)
   };
 
+  
   // Check if all password requirements are met
   const isPasswordValid = v.len && v.upper && v.lower && v.num && v.special;
   const passwordsMatch = password.length > 0 && password === confirmPassword;
