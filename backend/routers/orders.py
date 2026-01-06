@@ -1,260 +1,143 @@
-from fastapi import APIRouter, UploadFile, File, Form
-from utils import read_json, write_json, get_current_time
-from logger_config import get_logger
-from enum import Enum
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from sqlmodel import Session
 from typing import List, Optional
-from pydantic import BaseModel
-import random
+import json
 import os
 import shutil
-import json
-from datetime import datetime, timedelta
+
+# Database imports
+from database.database import get_session
+from database.models import Order, OrderStatus
+from crud.orders_crud import (
+    create_order as db_create_order,
+    get_order_with_details,
+    get_user_orders as db_get_user_orders,
+    update_order_status,
+    generate_order_bill
+)
+from crud.delivery_crud import assign_delivery_partner
+from logger_config import get_logger
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 logger = get_logger("OrdersAPI")
 
-ORDERS_FILE = "orders.json"
-USERS_FILE = "users.json"
-RESTAURANTS_FILE = "restaurants.json"
-DELIVERY_PERSONS_FILE = "delivery_persons.json"
-
-GST_PERCENTAGE = 5
-DELIVERY_CHARGE = 20
-
 UPLOAD_DIRECTORY = "uploads/orders"
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
-
-class OrderStatus(str, Enum):
-    placed = "placed"
-    preparing = "preparing"
-    pick_up = "pick_up"
-    delivered = "delivered"
-
-
-class OrderItem(BaseModel):
-    item_name: str
-    restaurant_name: str
-    quantity: int
-
-
-def normalize_section(section_name: str) -> str:
-    return section_name.lower().replace(" ", "_")
-
-
-def is_item_available_now(section_name: str, section_timings: dict) -> bool:
-    normalized_timings = {}
-
-    for section, timing in section_timings.items():
-        normalized_timings[normalize_section(section)] = timing
-
-    if section_name not in normalized_timings:
-        logger.info("Section %s missing in timings", section_name)
-        return False
-
-    ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
-    current_time = ist_time.time()
-
-    start_time = datetime.strptime(
-        normalized_timings[section_name]["start"], "%H:%M"
-    ).time()
-
-    end_time = datetime.strptime(
-        normalized_timings[section_name]["end"], "%H:%M"
-    ).time()
-
-    return start_time <= current_time <= end_time
-
+# Constants for billing
+GST_PERCENTAGE = 5
+DELIVERY_CHARGE = 20
 
 @router.post("/create")
 def create_order(
     user_id: int = Form(...),
-    items: str = Form(
-        default='[{"item_name":"Tiffin Special","restaurant_name":"Novotel","quantity":1}]'
-    ),
-    attachment: Optional[UploadFile] = File(None)
+    restaurant_id: int = Form(...),
+    items: str = Form(...),  # JSON string: '[{"menu_id": 1, "quantity": 2}]'
+    attachment: Optional[UploadFile] = File(None),
+    session: Session = Depends(get_session)
 ):
+    """Requirement: Create order and save payment attachment"""
     try:
-        users = read_json(USERS_FILE)
-        restaurants = read_json(RESTAURANTS_FILE)
-        delivery_persons = read_json(DELIVERY_PERSONS_FILE)
-        orders = read_json(ORDERS_FILE)
-
-        user_found = False
-        for user in users:
-            if user["id"] == user_id:
-                user_found = True
-                break
-
-        if not user_found:
-            return {"status": "error", "message": "User not found"}
-
-        try:
-            items_data = json.loads(items)
-            validated_items: List[OrderItem] = [
-                OrderItem(**item) for item in items_data
-            ]
-        except Exception:
-            return {"status": "error", "message": "Invalid items format"}
-
-        ordered_items = []
-        subtotal_amount = 0
-
-        for order_item in validated_items:
-            restaurant_found = None
-
-            for restaurant in restaurants:
-                if restaurant["name"].lower() == order_item.restaurant_name.lower():
-                    restaurant_found = restaurant
-                    break
-
-            if not restaurant_found:
-                return {
-                    "status": "error",
-                    "message": f"Restaurant {order_item.restaurant_name} not found"
-                }
-
-            item_matched = False
-
-            for section_key, menu_items in restaurant_found["menu"].items():
-                normalized_section = normalize_section(section_key)
-
-                for menu_item in menu_items:
-                    if menu_item["name"].lower() == order_item.item_name.lower():
-
-                        if not is_item_available_now(
-                            normalized_section,
-                            restaurant_found.get("section_timings", {})
-                        ):
-                            return {
-                                "status": "error",
-                                "message": f"{order_item.item_name} is not available now"
-                            }
-
-                        item_total = menu_item["price"] * order_item.quantity
-                        subtotal_amount += item_total
-
-                        ordered_items.append({
-                            "restaurant_name": restaurant_found["name"],
-                            "section": normalized_section,
-                            "item_name": menu_item["name"],
-                            "price": menu_item["price"],
-                            "quantity": order_item.quantity,
-                            "item_total": item_total
-                        })
-
-                        item_matched = True
-                        break
-
-                if item_matched:
-                    break
-
-            if not item_matched:
-                return {
-                    "status": "error",
-                    "message": f"{order_item.item_name} not found in {order_item.restaurant_name}"
-                }
-
-        gst_amount = (subtotal_amount * GST_PERCENTAGE) / 100
-        total_amount = subtotal_amount + gst_amount + DELIVERY_CHARGE
-
-        assigned_delivery_person = random.choice(delivery_persons)
-
-        attachment_details = None
+        items_data = json.loads(items)
+        
+        # Handle attachment
+        file_path = None
         if attachment:
-            saved_path = os.path.join(
-                UPLOAD_DIRECTORY,
-                f"{len(orders) + 1}_{attachment.filename}"
-            )
-
-            with open(saved_path, "wb") as buffer:
+            file_path = os.path.join(UPLOAD_DIRECTORY, f"u{user_id}_r{restaurant_id}_{attachment.filename}")
+            with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(attachment.file, buffer)
 
-            attachment_details = {
-                "file_name": attachment.filename,
-                "file_path": saved_path,
-                "content_type": attachment.content_type
-            }
+        # Call your CRUD function
+        order = db_create_order(
+            session=session,
+            user_id=user_id,
+            restaurant_id=restaurant_id,
+            items=items_data,
+            payment_image=file_path
+        )
 
-        new_order = {
-            "user_id": user_id,
-            "items": ordered_items,
-            "subtotal": subtotal_amount,
-            "gst_percent": GST_PERCENTAGE,
-            "gst_amount": gst_amount,
-            "delivery_fee": DELIVERY_CHARGE,
-            "total_price": total_amount,
-            "status": OrderStatus.placed.value,
-            "placed_time": get_current_time(),
-            "preparing_time": None,
-            "pick_up_time": None,
-            "delivered_time": None,
-            "delivery_person": assigned_delivery_person,
-            "attachment": attachment_details
-        }
+        if not order:
+            return {"status": "error", "message": "Order creation failed. Check item availability or IDs."}
 
-        orders.append(new_order)
-        write_json(ORDERS_FILE, orders)
+        return {"status": "success", "order_id": order.id, "total_amount": order.total_amount}
 
-        logger.info("Order created successfully: %s", new_order["order_id"])
-        return {"status": "success", "order": new_order}
-
-    except Exception as error:
-        logger.error("Order creation failed: %s", str(error), exc_info=True)
+    except Exception as e:
+        logger.error(f"Order creation failed: {str(e)}")
         return {"status": "error", "message": "Internal server error"}
 
+@router.get("/user/{user_id}/orders")
+def get_user_orders(user_id: int, session: Session = Depends(get_session)):
+    """Requirement: Select order details for a specific user (History)"""
+    orders = db_get_user_orders(session, user_id)
+    
+    # Mapping to the format suggested in your requirements image
+    result = []
+    for o in orders:
+        result.append({
+            "order_id": o.id,
+            "restaurant_name": o.restaurant.name,
+            "location": o.restaurant.address,
+            "status": o.status,
+            "total_amount": o.total_amount,
+            "date": o.created_at
+        })
+    return {"status": "success", "orders": result}
+
+@router.get("/{order_id}/bill")
+def get_bill(order_id: int, session: Session = Depends(get_session)):
+    """Requirement: Generate detailed bill (Subtotal, GST, Delivery Fee)"""
+    bill_data = generate_order_bill(session, order_id)
+    
+    if not bill_data:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Adding the calculated fields as per image requirements
+    subtotal = sum(item['item_total'] for item in bill_data['items'])
+    gst_amount = (subtotal * GST_PERCENTAGE) / 100
+    
+    bill_data["billing_summary"] = {
+        "subtotal": subtotal,
+        "gst_amount": gst_amount,
+        "delivery_fee": DELIVERY_CHARGE,
+        "grand_total": subtotal + gst_amount + DELIVERY_CHARGE
+    }
+    
+    return {"status": "success", "bill": bill_data}
+
+@router.get("/restaurant/{restaurant_id}")
+def get_restaurant_orders(restaurant_id: int, session: Session = Depends(get_session)):
+    from sqlmodel import select
+    from sqlalchemy.orm import selectinload
+    
+    # We use selectinload(Order.user) so the frontend gets the User's name
+    stmt = select(Order).where(Order.restaurant_id == restaurant_id).options(selectinload(Order.user)).order_by(Order.created_at.desc())
+    orders = session.exec(stmt).all()
+    
+    formatted_orders = []
+    for o in orders:
+        formatted_orders.append({
+            "id": o.id,
+            "total_amount": o.total_amount,
+            "status": o.status,
+            "user_name": o.user.name if o.user else "Guest", # This fixed the frontend display
+            "user_id": o.user_id,
+            "created_at": o.created_at.isoformat() if o.created_at else None
+        })
+    
+    return {"status": "success", "orders": formatted_orders}
 
 @router.put("/{order_id}/status")
-def update_order_status(order_id: int, new_status: OrderStatus):
-    orders = read_json(ORDERS_FILE)
+def update_status(order_id: int, status: str, session: Session = Depends(get_session)):
+    """Updates order status: PLACED -> PREPARING -> OUT_FOR_DELIVERY -> DELIVERED"""
+    order = update_order_status(session, order_id, status.upper())
+    if not order:
+        return {"status": "error", "message": "Order not found"}
+    return {"status": "success", "new_status": order.status}
 
-    for order in orders:
-        if order["order_id"] == order_id:
-            current_status = order["status"]
-
-            valid_status_flow = {
-                OrderStatus.placed.value: OrderStatus.preparing.value,
-                OrderStatus.preparing.value: OrderStatus.pick_up.value,
-                OrderStatus.pick_up.value: OrderStatus.delivered.value
-            }
-
-            if current_status not in valid_status_flow:
-                return {"status": "error", "message": "Invalid current order status"}
-
-            if valid_status_flow[current_status] != new_status.value:
-                return {
-                    "status": "error",
-                    "message": f"Only {current_status} → {valid_status_flow[current_status]} allowed"
-                }
-
-            current_time = get_current_time()
-
-            if new_status == OrderStatus.preparing:
-                order["preparing_time"] = current_time
-            elif new_status == OrderStatus.pick_up:
-                order["pick_up_time"] = current_time
-            elif new_status == OrderStatus.delivered:
-                order["delivered_time"] = current_time
-
-            order["status"] = new_status.value
-            write_json(ORDERS_FILE, orders)
-
-            return {"status": "success", "order": order}
-
-    return {"status": "error", "message": "Order not found"}
-
-
-@router.get("/")
-def get_all_orders():
-    return {"status": "success", "orders": read_json(ORDERS_FILE)}
-
-
-@router.get("/{order_id}")
-def get_single_order(order_id: int):
-    orders = read_json(ORDERS_FILE)
-
-    for order in orders:
-        if order["order_id"] == order_id:
-            return {"status": "success", "order": order}
-
-    return {"status": "error", "message": "Order not found"}
+@router.post("/{order_id}/assign/{partner_id}")
+def assign_partner(order_id: int, partner_id: int, session: Session = Depends(get_session)):
+    """Requirement: Assign delivery partner and update status"""
+    order = assign_delivery_partner(session, order_id, partner_id)
+    if not order:
+        return {"status": "error", "message": "Assignment failed. Partner might be unavailable."}
+    return {"status": "success", "delivery_partner": order.delivery_partner.name}
