@@ -12,7 +12,7 @@ const UserDashboard = ({ onLogout }) => {
         if (res.data.status === "success") {
           const items = [];
           res.data.restaurants.forEach(r => {
-            Object.keys(r.menu).forEach(cat => {
+            Object.keys(r.menu||{}).forEach(cat => {
               r.menu[cat].forEach(item => {
                 items.push({ ...item, r_id: r.id, category: cat });
               });
