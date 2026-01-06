@@ -50,15 +50,14 @@ const AuthPage = () => {
     formData.append('password', password);
       formData.append('role', currentRole);
     if (!isLogin) {
-      // Validate password match
+      
       if (password !== confirmPassword) {
         const matchErr = "Password and confirm password should match.";
         setError(matchErr);
         console.error("Validation Error:", matchErr);
         return;
       }
-      
-      // Validate password requirements
+
       if (!isPasswordValid) {
         const validationErr = "Password must meet all requirements (8+ characters, uppercase, lowercase, number, special character).";
         setError(validationErr);

@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-// Path resolution based on your file tree
 import AuthPage from './pages/AuthPage'; 
 import UserDashboard from './UserDashboard'; 
 import RestaurantDashboard from './RestaurantDashboard';
