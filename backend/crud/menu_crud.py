@@ -1,7 +1,10 @@
 from sqlmodel import Session, select
 from typing import List, Optional
-from models import Menu
+from database.models import Menu,Category, Restaurant
 from datetime import datetime
+from utils import get_current_ist_time
+from sqlalchemy.orm import selectinload, joinedload
+
 def create_menu_item(session: Session, data: dict) -> Menu:
     menu = Menu(
         name=data["name"],
@@ -102,3 +105,38 @@ def delete_menu(session: Session, menu_id: int):
     session.delete(menu)
     session.commit()
     return True
+  
+def search_dashboard_menu(
+    session: Session,
+    keyword: str,
+    available_only: bool = True
+):
+    stmt = (
+        select(Menu)
+        .join(Menu.restaurant)   
+        .join(Menu.category)     
+        .options(
+            joinedload(Menu.restaurant),
+            joinedload(Menu.category)
+        )
+        .where(
+            Menu.name.ilike(f"%{keyword}%") |
+            Restaurant.name.ilike(f"%{keyword}%")
+        )
+    )
+
+
+
+
+    if available_only:
+        stmt = stmt.where(Menu.is_available == True)
+    stmt = stmt.distinct(Menu.id)
+    menus = session.exec(stmt).all()
+    current_time = datetime.now().time()
+    filtered_menus = []
+    for menu in menus:
+        category = menu.category
+        if category.start_time <= current_time <= category.end_time:
+            filtered_menus.append(menu)
+
+    return filtered_menus

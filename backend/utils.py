@@ -2,6 +2,9 @@ import json
 import os
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 
 def read_json(file_path):
     if not os.path.exists(file_path):
@@ -14,7 +17,19 @@ def write_json(file_path, data):
         json.dump(data, f, indent=4)
 
 def get_current_time():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """
+    Returns current IST datetime string
+    Example: 2026-01-07 10:15:30
+    """
+    return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_current_ist_time():
+    """
+    Returns current IST time object
+    Used for category start/end comparison
+    """
+    return datetime.now(IST).time()
 
 def is_valid_mobile(mobile: str):
     return bool(re.fullmatch(r"[6-9]\d{9}", mobile))
