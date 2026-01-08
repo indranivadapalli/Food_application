@@ -33,8 +33,8 @@ def register_restaurant(
     logger.info("Restaurant registration started for %s", email)
 
     try:
-     #   if password != confirm_password:
-       
+     
+      
         if restaurant_pic:
 
             pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
