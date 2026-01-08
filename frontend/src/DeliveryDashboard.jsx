@@ -7,7 +7,7 @@ import {
   Moped, Person, ListAlt, Logout, CheckCircle, LocalShipping, QueryBuilder 
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { api } from './api';
+import  api  from './api';
 
 const DeliveryDashboard = ({ onLogout }) => {
   const navigate = useNavigate();
