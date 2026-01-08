@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, CssBaseline,Avatar, FormControlLabel, TextField, Switch, Paper, AppBar, Toolbar, Typography, Drawer, List, ListItem,
-  ListItemButton, ListItemIcon, Button, ListItemText, Divider, Container, Grid, Chip, CircularProgress
+  ListItemButton, ListItemIcon, Button, ListItemText,MenuItem, Divider, Container, Grid, Chip, CircularProgress
 } from '@mui/material';
 import {
   Dashboard as DashIcon, AddBox, AccountCircle,ShoppingCart, Edit, Delete, ExitToApp, Menu as MenuIcon
@@ -14,33 +14,33 @@ const drawerWidth = 240;
 const RestaurantDashboard = () => {
   console.log("Rendering RestaurantDashboard component");
   const [activeTab, setActiveTab] = useState('Dashboard');
-  const [userName] = useState(localStorage.getItem('name') || localStorage.getItem('user') || "User");
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]); // ADD NEW STATES HERE
+  const [isGlobalLoading, setIsGlobalLoading] = useState(false);
+  useEffect(() => {
+    }, []);
   const [userObj,setUserObj] = useState(() => {
     const saved = localStorage.getItem('userObj');
     if (!saved) return null;
     try {
-    const parsed = JSON.parse(saved);
-    if (parsed.status === 'error') return null; 
-    return parsed;
+      const parsed = JSON.parse(saved);
+      return parsed.status === 'success' ? parsed : null;
     } catch (error) {
       console.error("Failed to parse userObj:", error);
-      return {};
+      return null;
     }
   });
+const displayHeaderName = userObj?.restaurant?.name || userObj?.name || "Restaurant Owner";
 useEffect(() => {
-  const storedUser = localStorage.getItem('userObj');
-  if (!storedUser || !userObj) {
-    navigate('/login');
-    return;
-  }
-
-  // 2. Role-based protection
-  if (userObj.role !== 'restaurant') {
-    alert("Access Denied");
-    navigate('/');
-  }
-}, [userObj, navigate]);
+    if (!userObj) {
+      navigate('/login');
+      return;
+    }
+    if (userObj.role !== 'restaurant') {
+      alert("Access Denied");
+      navigate('/');
+    }
+  }, [userObj, navigate]);
 
   if (!userObj) return null;
   const handleLogout = () => {
@@ -82,9 +82,13 @@ useEffect(() => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Restaurant Panel
           </Typography>
-          <Typography variant="body1">
-            Welcome, <b>{userName}</b>
-          </Typography>
+          
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+  <AccountCircle />
+  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+    {displayHeaderName}
+  </Typography>
+</Box>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -144,15 +148,17 @@ const [actionLoading, setActionLoading] = useState(false);
 const handleCompleteOrder = async (orderId) => {
   setActionLoading(true);
     try {
-      await axios.put(`http://127.0.0.1:8000/orders/${orderId}/status`, {
+      await axios.put(`http://127.0.0.1:8000/orders/${userObj.restaurant.id}/status`, {
         status: 'Completed'
       });
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'Completed' } : o));
+    alert("Order marked as completed!");
     } catch (err) {
+      console.error(err);
       alert("Failed to update status");
     }
     finally {
-      setActionLoading(false); // Enable button
+      setActionLoading(false); 
     }
   };
   const categories = ["All", "Tiffins", "Starters", "Main Course", "SoftDrinks", "Desserts"];
@@ -228,9 +234,10 @@ const handleCompleteOrder = async (orderId) => {
     size="small" 
     variant="contained" 
     color="success" 
+    disabled={actionLoading}
     onClick={() => handleCompleteOrder(order.id)} // ADD THIS
   >
-    Done
+    {actionLoading ? <CircularProgress size={20} /> : "Done"}
   </Button>
                   </Box>
                 </Paper>
@@ -412,9 +419,13 @@ const AddItemForm = ({ userObj }) => {
               <TextField fullWidth label="Item Name" name="name" value={formData.name} onChange={handleChange} required />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField select fullWidth label="Category" name="category" value={formData.category} onChange={handleChange} SelectProps={{ native: true }} required>
+              <TextField select fullWidth label="Category" name="category" value={formData.category} onChange={handleChange}  required>
                 <option value=""></option>
-                {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+               {categories.map((cat) => (
+      <MenuItem key={cat} value={cat}>
+        {cat}
+      </MenuItem>
+    ))}
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -448,7 +459,7 @@ const OrdersView = ({ userObj }) => {
   const [actionLoading, setActionLoading] = useState(false);
 const handleCompleteOrder = async (orderId) => {
     try {
-      await axios.put(`http://127.0.0.1:8000/orders/${orderId}/status`, {
+      await axios.put(`http://127.0.0.1:8000/orders/${userObj.restaurant.id}/status`, {
         status: 'Completed'
       });
       // Refresh local state to move order to "Past Orders"
@@ -463,7 +474,7 @@ const handleCompleteOrder = async (orderId) => {
     console.log("OrdersView: useEffect fetching all orders");
     const fetchOrders = async () => {
       try {
-        const res = await axios.get(`http://127.0.0.1:8000/orders/restaurant/${userObj?.restaurant?.id}`);
+        const res = await axios.get(`http://127.0.0.1:8000/orders/restaurant/${userObj.restaurant.id}`);
         console.log("OrdersView: Data received", res.data);
         setOrders(res.data || []);
       } catch (err) {
@@ -551,160 +562,262 @@ const handleCompleteOrder = async (orderId) => {
 
 const ProfileView = ({ userObj }) => {
   const navigate = useNavigate();
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
-  const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
-
-  // DYNAMIC DELETE LOGIC
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null); // Stores the actual file
+  const [previewUrl, setPreviewUrl] = useState(null);
+  // This state will handle all form updates including password
+  const [editData, setEditData] = useState({
+   name: userObj?.restaurant?.name || userObj?.name || '',
+    mobile: userObj?.mobile || '',
+    address: userObj?.restaurant?.address || '',
+    newPassword: '' // Only filled if they want to change it
+  });
+const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file)); // Create a temporary URL for the preview
+    }
+  };
   const handleDeleteAccount = async () => {
     const confirmDelete = window.confirm("Are you sure? This will permanently delete your restaurant and all menu items.");
     if (confirmDelete) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/users/${userObj?.restaurant?.id}`);
+        await axios.delete(`http://127.0.0.1:8000/restaurants/${userObj.restaurant.id}`);
+       localStorage.removeItem('userObj');
+      localStorage.clear();
         alert("Account deleted.");
-        localStorage.clear();
         navigate('/login');
       } catch (err) {
-        alert("Error deleting account. Please try again.");
+       console.error("Delete error:", err);
+      alert("Could not delete account. Server might be down.");
       }
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (passwords.new !== passwords.confirm) {
-      alert("New passwords do not match!");
-      return;
+  const handleUpdateProfile = async () => {
+  try {
+    const formData = new FormData();
+    // 1. Fill the formData with your text fields
+    formData.append('name', editData.name);
+    formData.append('mobile', editData.mobile);
+    formData.append('address', editData.address);
+    if (editData.newPassword) {
+      formData.append('password', editData.newPassword);
     }
-    try {
-      await axios.put(`http://127.0.0.1:8000/users/${userObj?.restaurant?.id}/change-password`, {
-        old_password: passwords.current,
-        new_password: passwords.new
-      });
-      alert("Password updated!");
-      setShowPasswordFields(false);
-    } catch (err) {
-      alert("Failed to update password.");
+    
+    // 2. Append the image file if one was selected
+    if (selectedFile) {
+      formData.append('restaurant_pic', selectedFile);
     }
-  };
 
+    // 3. IMPORTANT: Send 'formData' instead of 'editData'
+   const response= await axios.put(
+      `http://127.0.0.1:8000/restaurants/${userObj.restaurant.id}/update`, 
+      formData, 
+      { headers: { 'Content-Type': 'multipart/form-data' } } 
+    );
+const newImagePath = response.data.restaurant_pic ;
+    // 4. Update local storage so data persists after refresh
+    const updatedUserObj = {
+      ...userObj,
+      name: editData.name,
+      mobile: editData.mobile,
+      restaurant: {
+        ...userObj.restaurant,
+        name: editData.name,
+        address: editData.address,
+        restaurant_pic: newImagePath || userObj.restaurant.restaurant_pic
+      }
+    };
+    localStorage.setItem('userObj', JSON.stringify(updatedUserObj));
+
+    alert("Profile updated successfully!");
+    setIsEditing(false);
+    setPreviewUrl(null);
+    window.location.reload(); 
+    
+  } catch (err) {
+    console.error("Update error:", err.response);
+    alert(err.response?.data?.detail || "Failed to update profile.");
+  }
+};
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1a237e' }}>
         Owner Profile
       </Typography>
       
-      <Grid container spacing={4}>
-        {/* LEFT SIDE: USER INFO (DYNAMIC) */}
-        <Grid item xs={12} md={7}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
-              {/* IMAGE IS NOW NON-EDITABLE DISPLAY ONLY */}
-              <Avatar 
-                src={userObj?.restaurant?.imageUrl || ""} 
-                sx={{ width: 120, height: 120, bgcolor: '#1a237e', fontSize: '3rem', border: '4px solid #fff', boxShadow: 2 }}
-              >
-                {userObj?.name?.charAt(0) || "U"}
-              </Avatar>
-              
-              <Box>
-                <Typography variant="h5" fontWeight="bold">
-                  {userObj?.name || "Unauthorized User"}
-                </Typography>
-                <Typography color="text.secondary">
-                  {userObj?.email || "No Email Provided"}
-                </Typography>
-                <Chip label="Verified Restaurant Partner" color="success" size="small" sx={{ mt: 1 }} />
-              </Box>
+      {/* Centered Single Column Layout */}
+      <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+        <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
+          
+          {/* Header Section */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
+            <Avatar 
+              src={
+    previewUrl 
+      ? previewUrl // Show preview immediately after picking file
+      : userObj?.restaurant?.restaurant_pic 
+        ? `http://127.0.0.1:8000/restaurants/${userObj.restaurant.restaurant_pic}/update` // Show saved path from server
+        : "" 
+  }
+              sx={{ width: 120, height: 120, bgcolor: '#1a237e', fontSize: '3rem', border: '4px solid #fff', boxShadow: 2 }}
+            >
+             {!previewUrl && !userObj?.restaurant?.restaurant_pic && (userObj?.name?.charAt(0) || "U")}
+            </Avatar>
+            {isEditing && (
+      <Box sx={{ mt: 1, textAlign: 'center' }}>
+        <input
+          accept="image/*"
+          style={{ display: 'none' }}
+          id="icon-button-file"
+          type="file"
+          onChange={handleFileChange}
+        />
+           <label htmlFor="icon-button-file">
+          <Button 
+            variant="contained" 
+            size="small" 
+            component="span" 
+            sx={{ fontSize: '10px', p: 0.5, bgcolor: '#1a237e' }}
+          >
+            Upload
+          </Button>
+        </label>
+      </Box>
+    )} 
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                {userObj?.restaurant?.owner_name || userObj?.name || userObj?.restaurant?.name || "Owner"}
+              </Typography>
+              <Typography color="text.secondary">
+               {userObj?.email || userObj?.restaurant?.email || "Email not found"}
+              </Typography>
+              <Chip label="Verified Restaurant Partner" color="success" size="small" sx={{ mt: 1 }} />
             </Box>
+          </Box>
 
-            <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 3 }} />
 
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>Restaurant Name</Typography>
+          {/* Form Fields Section */}
+          <Grid container spacing={3}>
+            {/* Restaurant Name */}
+            <Grid item xs={12} sm={6}>
+              <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>Restaurant Name</Typography>
+              {isEditing ? (
+                <TextField 
+                  fullWidth 
+                  size="small" 
+                  value={editData.name} 
+                  onChange={(e) => setEditData({...editData, name: e.target.value})}
+                  variant="outlined" 
+                />
+              ) : (
                 <Typography variant="body1" fontWeight="500">{userObj?.restaurant?.name || "Not Set"}</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>Phone Number</Typography>
-                <Typography variant="body1" fontWeight="500">{userObj?.phone || "Not Provided"}</Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>Restaurant Address</Typography>
-                <Typography variant="body1" fontWeight="500">{userObj?.restaurant?.address || "No Address on file"}</Typography>
-              </Grid>
+              )}
             </Grid>
 
-            <Box sx={{ mt: 5, display: 'flex', gap: 2 }}>
-              {/* EDIT BUTTON (Can lead to a specialized edit page) */}
-              <Button 
-                variant="contained" 
-                startIcon={<Edit />} 
-                sx={{ bgcolor: '#1a237e' }}
-                onClick={() => alert("Redirecting to Edit Profile Form...")}
-              >
-                Edit Profile
-              </Button>
-              
-              {/* DYNAMIC DELETE BUTTON */}
-              <Button 
-                variant="outlined" 
-                color="error" 
-                startIcon={<Delete />}
-                onClick={handleDeleteAccount}
-              >
-                Delete Account
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
+            {/* mobile Number */}
+            <Grid item xs={12} sm={6}>
+              <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>mobile Number</Typography>
+              {isEditing ? (
+                <TextField 
+                  fullWidth 
+                  size="small" 
+                  value={editData.mobile} 
+                  onChange={(e) => setEditData({...editData, mobile: e.target.value})}
+                  variant="outlined" 
+                />
+              ) : (
+                <Typography variant="body1" fontWeight="500">{userObj?.mobile || "Not Provided"}</Typography>
+              )}
+            </Grid>
 
-        {/* RIGHT SIDE: SECURITY */}
-        <Grid item xs={12} md={5}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>Security Settings</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Your data is encrypted. You can update your credentials below.
-            </Typography>
+            {/* Address */}
+            <Grid item xs={12}>
+              <Typography variant="caption" color="gray" sx={{ textTransform: 'uppercase' }}>Restaurant Address</Typography>
+              {isEditing ? (
+                <TextField 
+                  fullWidth 
+                  size="small" 
+                  multiline
+                  rows={2}
+                  value={editData.address} 
+                  onChange={(e) => setEditData({...editData, address: e.target.value})}
+                  variant="outlined" 
+                />
+              ) : (
+                <Typography variant="body1" fontWeight="500">{userObj?.restaurant?.address || "No Address on file"}</Typography>
+              )}
+            </Grid>
 
-            {!showPasswordFields ? (
-              <Button 
-                variant="outlined" 
-                fullWidth 
-                onClick={() => setShowPasswordFields(true)}
-              >
-                Change Account Password
-              </Button>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Password Field - Only visible during editing */}
+            {isEditing && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold' }}>Update Password (Leave blank to keep current)</Typography>
                 <TextField 
-                  type="password" 
-                  label="Current Password" 
                   fullWidth 
-                  value={passwords.current}
-                  onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                  type="password"
+                  size="small" 
+                  placeholder="New Password"
+                  value={editData.newPassword} 
+                  onChange={(e) => setEditData({...editData, newPassword: e.target.value})}
+                  variant="outlined" 
+                  sx={{ mt: 1 }}
                 />
-                <TextField 
-                  type="password" 
-                  label="New Password" 
-                  fullWidth 
-                  value={passwords.new}
-                  onChange={(e) => setPasswords({...passwords, new: e.target.value})}
-                />
-                <TextField 
-                  type="password" 
-                  label="Confirm New Password" 
-                  fullWidth 
-                  value={passwords.confirm}
-                  onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
-                />
-                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                  <Button variant="contained" color="success" fullWidth onClick={handlePasswordChange}>Update</Button>
-                  <Button variant="text" color="inherit" fullWidth onClick={() => setShowPasswordFields(false)}>Cancel</Button>
-                </Box>
-              </Box>
+              </Grid>
             )}
-          </Paper>
-        </Grid>
-      </Grid>
+          </Grid>
+
+          {/* Action Buttons Section */}
+          <Box sx={{ mt: 5, display: 'flex', gap: 2 }}>
+            {!isEditing ? (
+              <>
+                <Button 
+                  variant="contained" 
+                  startIcon={<Edit />} 
+                  sx={{ bgcolor: '#1a237e' }}
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit Profile
+                </Button>
+                
+                <Button 
+                  variant="outlined" 
+                  color="error" 
+                  startIcon={<Delete />}
+                  onClick={handleDeleteAccount}
+                >
+                  Delete Account
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="contained" 
+                  color="success" 
+                  onClick={handleUpdateProfile}
+                >
+                  Save Changes
+                </Button>
+               <Button 
+        variant="text" 
+        color="inherit" 
+        onClick={() => {
+          setIsEditing(false);
+          setPreviewUrl(null);   // Clears the temporary image preview
+          setSelectedFile(null); // Clears the file from memory
+        }}
+      >
+        Cancel
+      </Button>
+              </>
+            )}
+          </Box>
+        </Paper>
+      </Box>
     </Box>
   );
 };

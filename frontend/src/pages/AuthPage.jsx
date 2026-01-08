@@ -68,14 +68,23 @@ const AuthPage = () => {
 
         console.log("Sending Login Form Data:", Object.fromEntries(formData));
         response = await API.post(endpoint, formData);
-        if (response.data.status === 'error') {
+        if (response.data.status === 'success') {
+          console.log("Login successful, saving session...");
+          
+          // Save the whole object (includes status, role, and restaurant/user data)
+          localStorage.setItem('userObj', JSON.stringify(response.data));
+          
+          // Save the current role for routing
+          localStorage.setItem('role', currentRole);
+          
+          navigate(`/${currentRole}-dashboard`);
+          return; // Exit function after successful navigation
+        }
+       else{
   console.error("Login rejected:", response.data.message);
-  setError(response.data.message); // This shows the error on the login screen
+  setError(response.data.message|| "Invalid email or password"); // This shows the error on the login screen
   return; // Stop the function so it doesn't navigate
 }
-localStorage.setItem('userObj', JSON.stringify(response.data));
-localStorage.setItem('role', currentRole);
-navigate(`/${currentRole}-dashboard`);
       } else {
         console.log("Validating Registration Requirements...");
         console.table({ isPasswordValid, passwordsMatch });
