@@ -39,8 +39,6 @@ def create_order(
             quantity=item["quantity"],
             price=menu.price
         ))
-
-    order.total_amount = total
     session.commit()
     session.refresh(order)
     return order
@@ -161,7 +159,10 @@ def generate_order_bill(session: Session, order_id: int):
             } if order.delivery_partner else None
         ),
         "items": [],
-        "total_amount": order.total_amount
+        "subtotal": order.total_amount,
+        "gst_amount": order.gst_amount,
+        "delivery_charge": order.delivery_charge,
+        "final_payable_amount": order.final_amount
     }
 
     for item in order.items:

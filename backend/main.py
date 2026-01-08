@@ -8,7 +8,11 @@ from routers.orders import router as orders_router
 from routers.menu import router as menu_router
 from routers.category import router as category_router
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()

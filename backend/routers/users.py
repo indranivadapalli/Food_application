@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Form, UploadFile, File, Depends  # Added Depends
+from fastapi import APIRouter, Form, UploadFile, File, Depends
 from pydantic import EmailStr
 from utils import read_json, write_json, is_valid_mobile
-from crud.users_crud import check_user_exists, create_user, get_user, verify_user,get_all_users,update_user,delete_user
+from crud.users_crud import (
+    check_user_exists,
+    create_user,
+    get_user,
+    verify_user,
+    get_all_users,
+    update_user,
+    delete_user
+)
 from logger_config import get_logger
 import os, shutil, re
-from utils import read_json, write_json, is_valid_mobile
 from database.database import get_session
-from sqlmodel import Session  # Added Session type
-
+from sqlmodel import Session
 
 router = APIRouter(prefix="/users", tags=["Users"])
 logger = get_logger("UsersAPI")
@@ -25,89 +31,90 @@ def register_user(
     confirm_password: str = Form(None),
     role: str = Form(...),
     profile_picture: UploadFile = File(None),
-    session: Session = Depends(get_session) # Use dependency injection
-    
+    session: Session = Depends(get_session)
 ):
-    logger.info("Registration started for %s with role: %s", email, role)
-    
+    logger.info("User registration started | email=%s | role=%s", email, role)
 
-    if not is_valid_mobile(mobile):
-        return {"status": "error", "message": "Invalid mobile number"}
+    try:
+        if not is_valid_mobile(mobile):
+            logger.error("Invalid mobile number | email=%s", email)
+            return {"status": "error", "message": "Invalid mobile number"}
 
+        pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
+        if not re.match(pattern, password):
+            logger.error("Weak password | email=%s", email)
+            return {"status": "error", "message": "Weak password"}
 
-    # if password != confirm_password:
-    #     return {"status": "error", "message": "Passwords do not match"}
+        file_path = None
+        if profile_picture and profile_picture.filename:
+            file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(profile_picture.file, f)
+            logger.info("Profile picture saved | email=%s", email)
 
-    # Password validation pattern
-    # Password validation pattern
-    pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
-    if not re.match(pattern, password):
-        return {"status": "error", "message": "Weak password"}
+        user_data = {
+            "name": name,
+            "email": email,
+            "mobile": mobile,
+            "address": address,
+            "password": password,
+            "profile_picture": file_path
+        }
 
-    # File saving logic
+        if check_user_exists(session, email, role):
+            logger.info("User already exists | email=%s | role=%s", email, role)
+            return {"status": "error", "message": "User already registered with this email"}
 
-    # File saving logic
-    file_path = None
-    if profile_picture and profile_picture.filename:
-        file_path = f"{UPLOAD_DIR}/{email}_{profile_picture.filename}"
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(profile_picture.file, f)
+        user = create_user(session=session, data=user_data, role=role)
 
-    user_data = {
-        "name": name,
-        "email": email,
-        "mobile": mobile,
-        "address": address,
-        "password": password,
-        
-        "profile_picture": file_path
-    }
-    
-    if check_user_exists(session, email, role):
-        return {"status": "error", "message": "User already registered with this email"}
+        logger.info("User registered successfully | user_id=%s", user.id)
 
-    # Pass the session from Depends to create_user
-    user = create_user(session=session, data=user_data, role=role)
+        return {
+            "status": "success",
+            "message": "User registered successfully",
+            "user": user
+        }
 
-
-    logger.info(f"User registered successfully {user}")
-
-    return {"status": "success", "message": "User registered successfully", "user": user}
-    # users.append(user_data)
-    # write_json(USER_FILE, users)
-
-
+    except Exception as e:
+        logger.error("User registration failed | error=%s", str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
 
 @router.post("/login")
 def login_user(
     email: EmailStr = Form(...),
     password: str = Form(...),
     role: str = Form(...),
-    session: Session = Depends(get_session) # Use dependency injection
+    session: Session = Depends(get_session)
 ):
-    logger.info("Login attempt for %s as role:%s", email, role)
-    
-    # Pass the session to verify_user
-    user_exist, user = verify_user(session=session, email=email, password=password, role=role)
-    
-    logger.info("Login attempt for %s as role:%s", email, role)
-    
-    # Pass the session to verify_user
-    user_exist, user = verify_user(session=session, email=email, password=password, role=role)
-    
-    if user_exist:
-        return {
-            'status': 'success',
-            'message': 'Login successful',
-            'message': 'Login successful',
-            'user': user,
-            'role': role
-        }
-    else:
+    logger.info("Login attempt | email=%s | role=%s", email, role)
+
+    try:
+        user_exist, user = verify_user(
+            session=session,
+            email=email,
+            password=password,
+            role=role
+        )
+
+        if user_exist:
+            logger.info("Login successful | user_id=%s", user.id)
+            return {
+                "status": "success",
+                "message": "Login successful",
+                "user": user,
+                "role": role
+            }
+
+        logger.info("Login failed | email=%s | role=%s", email, role)
         return {
             "status": "error",
             "message": f"Account not found in {role} records."
         }
+
+    except Exception as e:
+        logger.error("Login error | email=%s | error=%s", email, str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
+
 @router.put("/update/{user_id}")
 def update_user_api(
     user_id: int,
@@ -115,54 +122,72 @@ def update_user_api(
     mobile: str = Form(None),
     address: str = Form(None),
     password: str = Form(None),
-    profile_picture: UploadFile | None = File(None)
+    profile_picture: UploadFile | None = File(None),
+    session: Session = Depends(get_session)
 ):
-    session = get_session()
+    logger.info("User update started | user_id=%s", user_id)
 
-    update_data = {}
+    try:
+        update_data = {}
 
-    if name:
-        update_data["name"] = name
+        if name:
+            update_data["name"] = name
 
-    if mobile:
-        if not is_valid_mobile(mobile):
-            return {"status": "error", "message": "Invalid mobile number"}
-        update_data["mobile"] = mobile
+        if mobile:
+            if not is_valid_mobile(mobile):
+                logger.error("Invalid mobile | user_id=%s", user_id)
+                return {"status": "error", "message": "Invalid mobile number"}
+            update_data["mobile"] = mobile
 
-    if address:
-        update_data["address"] = address
+        if address:
+            update_data["address"] = address
 
-    if password:
-        pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
-        if not re.match(pattern, password):
-            return {"status": "error", "message": "Weak password"}
-        update_data["password"] = password
+        if password:
+            pattern = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
+            if not re.match(pattern, password):
+                logger.error("Weak password | user_id=%s", user_id)
+                return {"status": "error", "message": "Weak password"}
+            update_data["password"] = password
 
-    if profile_picture:
-        file_path = f"{UPLOAD_DIR}/{user_id}_{profile_picture.filename}"
-        with open(file_path, "wb") as f:
-            shutil.copyfileobj(profile_picture.file, f)
-        update_data["profile_picture"] = file_path
+        if profile_picture:
+            file_path = f"{UPLOAD_DIR}/{user_id}_{profile_picture.filename}"
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(profile_picture.file, f)
+            update_data["profile_picture"] = file_path
+            logger.info("Profile picture updated | user_id=%s", user_id)
 
-    user = update_user(session=session, user_id=user_id, data=update_data)
+        user = update_user(session=session, user_id=user_id, data=update_data)
 
-    if not user:
-        return {"status": "error", "message": "User not found"}
+        if not user:
+            logger.info("User not found | user_id=%s", user_id)
+            return {"status": "error", "message": "User not found"}
 
-    return {
-        "status": "success",
-        "message": "User updated successfully",
-        "user": user
-    }
+        logger.info("User updated successfully | user_id=%s", user_id)
 
+        return {
+            "status": "success",
+            "message": "User updated successfully",
+            "user": user
+        }
+
+    except Exception as e:
+        logger.error(
+            "User update failed | user_id=%s | error=%s",
+            user_id,
+            str(e),
+            exc_info=True
+        )
+        return {"status": "error", "message": "Internal error"}
 
 @router.get("/")
 def get_users():
-    logger.info("Fetching all users from database")
+    logger.info("Fetching all users")
 
     try:
         session = get_session()
         users = get_all_users(session)
+
+        logger.info("Users fetched successfully | count=%s", len(users))
 
         return {
             "status": "success",
@@ -180,19 +205,32 @@ def get_users():
         }
 
     except Exception as e:
-        logger.error("Failed to fetch users: %s", str(e), exc_info=True)
+        logger.error("Failed to fetch users | error=%s", str(e), exc_info=True)
         return {"status": "error", "message": "Internal error"}
 @router.delete("/delete/{user_id}")
-
 def delete_user_api(user_id: int):
-    session = get_session()
+    logger.info("Delete user request | user_id=%s", user_id)
 
-    deleted = delete_user(session=session, user_id=user_id)
+    try:
+        session = get_session()
+        deleted = delete_user(session=session, user_id=user_id)
 
-    if not deleted:
-        return {"status": "error", "message": "User not found"}
+        if not deleted:
+            logger.info("User not found for delete | user_id=%s", user_id)
+            return {"status": "error", "message": "User not found"}
 
-    return {
-        "status": "success",
-        "message": "User deleted successfully"
-    }
+        logger.info("User deleted successfully | user_id=%s", user_id)
+
+        return {
+            "status": "success",
+            "message": "User deleted successfully"
+        }
+
+    except Exception as e:
+        logger.error(
+            "Delete user failed | user_id=%s | error=%s",
+            user_id,
+            str(e),
+            exc_info=True
+        )
+        return {"status": "error", "message": "Internal error"}
