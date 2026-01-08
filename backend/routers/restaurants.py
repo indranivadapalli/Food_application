@@ -34,7 +34,7 @@ def register_restaurant(
 
     try:
      #   if password != confirm_password:
-       #     return {"status": "error", "message": "Passwords do not match"}
+       
         if restaurant_pic:
 
             pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
