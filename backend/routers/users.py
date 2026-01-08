@@ -88,10 +88,7 @@ def login_user(
     logger.info("Login attempt for %s as role:%s", email, role)
     
     # Pass the session to verify_user
-    user_exist, user = verify_user(session=session, email=email, password=password, role=role)
-    
-    logger.info("Login attempt for %s as role:%s", email, role)
-    
+   
     # Pass the session to verify_user
     user_exist, user = verify_user(session=session, email=email, password=password, role=role)
     
@@ -115,9 +112,9 @@ def update_user_api(
     mobile: str = Form(None),
     address: str = Form(None),
     password: str = Form(None),
-    profile_picture: UploadFile | None = File(None)
+    profile_picture: UploadFile | None = File(None),
+    session:Session=Depends(get_session)
 ):
-    session = get_session()
 
     update_data = {}
 

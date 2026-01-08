@@ -78,6 +78,8 @@ def login_restaurant(
         password=password
     )
 
+    print(f"restaurant user {restaurant}")
+
     if not success:
         return {"status": "error", "message": "Invalid email or password"}
 
@@ -117,7 +119,7 @@ def update_restaurant(
             update_data["restaurant_pic"] = pic_path
 
         restaurant = update_restaurant_db(
-            session=get_session(),
+            session=session,
             restaurant_id=restaurant_id,
             data=update_data
         )
