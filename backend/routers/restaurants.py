@@ -90,7 +90,7 @@ def login_restaurant(
 def update_restaurant(
     restaurant_id: int,
     address: str = Form(None),
-    contact: str = Form(None),
+    mobile: str = Form(None),
     password: str = Form(None),
     restaurant_pic: UploadFile = File(None),
     session: Session = Depends(get_session)
@@ -102,8 +102,8 @@ def update_restaurant(
 
         if address:
             update_data["address"] = address
-        if contact:
-            update_data["contact"] = contact
+        if mobile:
+            update_data["mobile"] = mobile
         if password:
             update_data["password"] = password
 
