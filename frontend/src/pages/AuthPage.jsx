@@ -68,6 +68,14 @@ const AuthPage = () => {
 
         console.log("Sending Login Form Data:", Object.fromEntries(formData));
         response = await API.post(endpoint, formData);
+        if (response.data.status === 'error') {
+  console.error("Login rejected:", response.data.message);
+  setError(response.data.message); // This shows the error on the login screen
+  return; // Stop the function so it doesn't navigate
+}
+localStorage.setItem('userObj', JSON.stringify(response.data));
+localStorage.setItem('role', currentRole);
+navigate(`/${currentRole}-dashboard`);
       } else {
         console.log("Validating Registration Requirements...");
         console.table({ isPasswordValid, passwordsMatch });
@@ -97,6 +105,11 @@ const AuthPage = () => {
 
       // --- LOG SUCCESS DATA ---
       console.log("Server Response Received:", response.data);
+      if (response.data.status === "error") {
+        console.error("Login rejected by server:", response.data.message);
+        setError(response.data.message || "Invalid credentials.");
+        return; // STOP the function here so it doesn't navigate
+      }
       console.log("Authentication successful, proceeding to dashboard...");
       // localStorage.setItem('userObj', response.data);
       localStorage.setItem('userObj', JSON.stringify(response.data));
@@ -124,6 +137,7 @@ const AuthPage = () => {
       }
     }
   };
+  
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 5, mb: 5 }}>
       <Paper elevation={3} sx={{ p: 4, width: 450, borderRadius: 4, border: '1px solid #ddd' }}>
