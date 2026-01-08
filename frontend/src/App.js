@@ -16,7 +16,7 @@ function App() {
       <Routes>
         <Route path="/" element={<AuthPage />} />
         <Route path="/user-dashboard" element={<UserDashboard onLogout={handleLogout} />} />
-        <Route path="/restaurant-dashboard" element={<RestaurantDashboard onLogout={handleLogout} />} />
+        <Route path="/restaurant-dashboard" element={<RestaurantDashboard onLogout={handleLogout}/>}/>
         <Route path="/delivery-dashboard" element={<DeliveryDashboard onLogout={handleLogout} />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
