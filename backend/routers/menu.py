@@ -1,18 +1,19 @@
-from fastapi import APIRouter, Form, File, UploadFile, Depends
+from fastapi import APIRouter, Form, File, UploadFile, Depends,Query
 from sqlmodel import Session, select
 from typing import Optional
+from datetime import datetime
 import os
 
-from database.models import Menu, Category  # Using your existing models
+from database.models import Menu, Category,Restaurant  # Using your existing models
 from database.database import get_session
 from logger_config import get_logger
+from crud.menu_crud import search_dashboard_menu
 
 router = APIRouter(prefix="/menu", tags=["Menu"])
 logger = get_logger("MenuAPI")
 
 MENU_UPLOAD_DIR = "uploads/menu_items"
 os.makedirs(MENU_UPLOAD_DIR, exist_ok=True)
-
 
 @router.post("/{restaurant_id}/add")
 def add_menu_item(
@@ -331,3 +332,80 @@ def get_items_by_category(
     except Exception as e:
         logger.error("Get items by category failed: %s", str(e), exc_info=True)
         return {"status": "error", "message": "Failed to fetch category items"}
+    
+@router.get("/dashboard/search")
+def search_item_restaurant(
+    word_search: str | None = Query(default=None),
+    session: Session = Depends(get_session)
+):
+    logger.info(f"Dashboard search keyword: {word_search}")
+
+
+    if not word_search:
+        restaurants = session.exec(select(Restaurant)).all()
+
+        restaurant_response = []
+        for r in restaurants:
+            restaurant_response.append({
+                "restaurant_id": r.id,
+                "name": r.name,
+                "address": r.address,
+                "restaurant_pic": r.restaurant_pic
+            })
+
+        return {
+            "status": "success",
+            "search": None,
+            "restaurants": restaurant_response,
+            "menu_items": [],
+            "restaurant_count": len(restaurant_response),
+            "menu_item_count": 0
+        }
+
+
+    restaurants = session.exec(
+        select(Restaurant).where(
+            Restaurant.name.ilike(f"%{word_search}%")
+        )
+    ).all()
+
+    restaurant_response = []
+    for r in restaurants:
+        restaurant_response.append({
+            "restaurant_id": r.id,
+            "name": r.name,
+            "address": r.address,
+            "restaurant_pic": r.restaurant_pic
+        })
+
+    menus = search_dashboard_menu(session, word_search)
+
+    menu_response = []
+    for item in menus:
+        menu_response.append({
+            "menu_id": item.id,
+            "name": item.name,
+            "price": item.price,
+            "is_available": item.is_available,
+            "menu_item_pic": item.menu_item_pic,
+            "restaurant": {
+                "id": item.restaurant.id,
+                "name": item.restaurant.name,
+                "address": item.restaurant.address
+            },
+            "category": {
+                "id": item.category.id,
+                "name": item.category.name,
+                "start_time": str(item.category.start_time),
+                "end_time": str(item.category.end_time)
+            }
+        })
+
+    return {
+        "status": "success",
+        "search": word_search,
+        "restaurants": restaurant_response,
+        "menu_items": menu_response,
+        "restaurant_count": len(restaurant_response),
+        "menu_item_count": len(menu_response)
+    }
