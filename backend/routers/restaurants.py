@@ -68,6 +68,7 @@ def login_restaurant(
     email: EmailStr = Form(...),
     password: str = Form(...),
     session: Session = Depends(get_session)
+
 ):
     logger.info("Restaurant login attempt: %s", email)
 
@@ -83,7 +84,9 @@ def login_restaurant(
     return {
         "status": "success",
         "message": "Login successful",
+        "role":"restaurant",
         "restaurant": restaurant
+
     }
 
 @router.put("/{restaurant_id}/update")
