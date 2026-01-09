@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Form, File, UploadFile,Depends
+from fastapi import APIRouter, Form, File, UploadFile, Depends
 from pydantic import EmailStr
 from crud.restaurant_crud import (
     create_restaurant,
@@ -30,13 +30,13 @@ def register_restaurant(
     restaurant_pic: UploadFile = File(None),
     session: Session = Depends(get_session)
 ):
-    logger.info("Restaurant registration started for %s", email)
+    logger.info("Restaurant registration started | email=%s", email)
 
     try:
-     
-      
-        if restaurant_pic:
+        pic_path = None
 
+        if restaurant_pic:
+            logger.info("Uploading restaurant image for %s", email)
             pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
             with open(pic_path, "wb") as f:
                 f.write(restaurant_pic.file.read())
@@ -49,9 +49,11 @@ def register_restaurant(
                 "password": password,
                 "address": address,
                 "mobile": mobile,
-                "restaurant_pic": pic_path if restaurant_pic else None
+                "restaurant_pic": pic_path
             }
         )
+
+        logger.info("Restaurant registered successfully | id=%s", restaurant.id)
 
         return {
             "status": "success",
@@ -60,37 +62,39 @@ def register_restaurant(
         }
 
     except Exception as e:
-        logger.error("Registration failed: %s", str(e), exc_info=True)
+        logger.error("Restaurant registration failed | email=%s | error=%s", email, str(e), exc_info=True)
         return {"status": "error", "message": "Internal error"}
-
 @router.post("/login")
 def login_restaurant(
     email: EmailStr = Form(...),
     password: str = Form(...),
     session: Session = Depends(get_session)
-
 ):
-    logger.info("Restaurant login attempt: %s", email)
+    logger.info("Restaurant login attempt | email=%s", email)
 
-    success, restaurant = verify_restaurant(
-        session,
-        email=email,
-        password=password
-    )
+    try:
+        success, restaurant = verify_restaurant(
+            session,
+            email=email,
+            password=password
+        )
 
-    print(f"restaurant user {restaurant}")
+        if not success:
+            logger.info("Login failed | invalid credentials | email=%s", email)
+            return {"status": "error", "message": "Invalid email or password"}
 
-    if not success:
-        return {"status": "error", "message": "Invalid email or password"}
+        logger.info("Login successful | restaurant_id=%s", restaurant.id)
 
-    return {
-        "status": "success",
-        "message": "Login successful",
-        "role":"restaurant",
-        "restaurant": restaurant
+        return {
+            "status": "success",
+            "message": "Login successful",
+            "role": "restaurant",
+            "restaurant": restaurant
+        }
 
-    }
-
+    except Exception as e:
+        logger.error("Login error | email=%s | error=%s", email, str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
 @router.put("/{restaurant_id}/update")
 def update_restaurant(
     restaurant_id: int,
@@ -100,7 +104,7 @@ def update_restaurant(
     restaurant_pic: UploadFile = File(None),
     session: Session = Depends(get_session)
 ):
-    logger.info("Update restaurant request: %s", restaurant_id)
+    logger.info("Update restaurant request | restaurant_id=%s", restaurant_id)
 
     try:
         update_data = {}
@@ -113,6 +117,7 @@ def update_restaurant(
             update_data["password"] = password
 
         if restaurant_pic:
+            logger.info("Updating restaurant image | restaurant_id=%s", restaurant_id)
             pic_path = f"{RESTAURANT_UPLOAD_DIR}/{restaurant_id}_{restaurant_pic.filename}"
             with open(pic_path, "wb") as f:
                 f.write(restaurant_pic.file.read())
@@ -125,39 +130,74 @@ def update_restaurant(
         )
 
         if not restaurant:
+            logger.info("Restaurant not found for update | restaurant_id=%s", restaurant_id)
             return {"status": "error", "message": "Restaurant not found"}
 
-        return {"status": "success", "message": "Restaurant updated successfully"}
+        logger.info("Restaurant updated successfully | restaurant_id=%s", restaurant_id)
+        return {
+            "status": "success",
+            "message": "Restaurant updated successfully",
+            "restaurant": restaurant
+        }
+
+
+
 
     except Exception as e:
-        logger.error("Update failed: %s", str(e), exc_info=True)
+        logger.error("Update failed | restaurant_id=%s | error=%s", restaurant_id, str(e), exc_info=True)
         return {"status": "error", "message": "Internal error"}
 
 @router.get("/{restaurant_id}")
 def get_single_restaurant(restaurant_id: int, session: Session = Depends(get_session)):
-    restaurant = get_restaurant(
-        session=session,
-        restaurant_id=restaurant_id
-    )
+    logger.info("Fetch single restaurant | restaurant_id=%s", restaurant_id)
 
-    if not restaurant:
-        return {"status": "error", "message": "Restaurant not found"}
+    try:
+        restaurant = get_restaurant(
+            session=session,
+            restaurant_id=restaurant_id
+        )
 
-    return {"status": "success", "restaurant": restaurant}
+        if not restaurant:
+            logger.info("Restaurant not found | restaurant_id=%s", restaurant_id)
+            return {"status": "error", "message": "Restaurant not found"}
+
+        logger.info("Restaurant fetched successfully | restaurant_id=%s", restaurant_id)
+        return {"status": "success", "restaurant": restaurant}
+
+    except Exception as e:
+        logger.error("Fetch restaurant error | restaurant_id=%s | error=%s", restaurant_id, str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
 
 @router.get("/")
 def fetch_all_restaurants(session: Session = Depends(get_session)):
-    restaurants = get_all_restaurants(session)
-    return {"status": "success", "restaurants": restaurants}
+    logger.info("Fetching all restaurants")
+
+    try:
+        restaurants = get_all_restaurants(session)
+        logger.info("Fetched %s restaurants", len(restaurants))
+        return {"status": "success", "restaurants": restaurants}
+
+    except Exception as e:
+        logger.error("Fetch all restaurants failed | error=%s", str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}
 
 @router.delete("/{restaurant_id}")
 def delete_restaurant(restaurant_id: int, session: Session = Depends(get_session)):
-    success = delete_restaurant_db(
-        session=session,
-        restaurant_id=restaurant_id
-    )
+    logger.info("Delete restaurant request | restaurant_id=%s", restaurant_id)
 
-    if not success:
-        return {"status": "error", "message": "Restaurant not found"}
+    try:
+        success = delete_restaurant_db(
+            session=session,
+            restaurant_id=restaurant_id
+        )
 
-    return {"status": "success", "message": "Restaurant deleted"}
+        if not success:
+            logger.info("Restaurant not found for deletion | restaurant_id=%s", restaurant_id)
+            return {"status": "error", "message": "Restaurant not found"}
+
+        logger.info("Restaurant deleted successfully | restaurant_id=%s", restaurant_id)
+        return {"status": "success", "message": "Restaurant deleted"}
+
+    except Exception as e:
+        logger.error("Delete failed | restaurant_id=%s | error=%s", restaurant_id, str(e), exc_info=True)
+        return {"status": "error", "message": "Internal error"}

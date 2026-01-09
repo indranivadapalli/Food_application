@@ -24,10 +24,6 @@ logger = get_logger("OrdersAPI")
 UPLOAD_DIRECTORY = "uploads/orders"
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
 
-# Constants for billing
-GST_PERCENTAGE = 5
-DELIVERY_CHARGE = 20
-
 @router.post("/create")
 def create_order(
     user_id: int = Form(...),
@@ -85,24 +81,17 @@ def get_user_orders(user_id: int, session: Session = Depends(get_session)):
 
 @router.get("/{order_id}/bill")
 def get_bill(order_id: int, session: Session = Depends(get_session)):
-    """Requirement: Generate detailed bill (Subtotal, GST, Delivery Fee)"""
+    """Requirement: Generate detailed bill """
+    
     bill_data = generate_order_bill(session, order_id)
     
     if not bill_data:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Adding the calculated fields as per image requirements
-    subtotal = sum(item['item_total'] for item in bill_data['items'])
-    gst_amount = (subtotal * GST_PERCENTAGE) / 100
-    
-    bill_data["billing_summary"] = {
-        "subtotal": subtotal,
-        "gst_amount": gst_amount,
-        "delivery_fee": DELIVERY_CHARGE,
-        "grand_total": subtotal + gst_amount + DELIVERY_CHARGE
+    return {
+        "status": "success",
+        "bill": bill_data
     }
-    
-    return {"status": "success", "bill": bill_data}
 
 @router.get("/restaurant/{restaurant_id}")
 def get_restaurant_orders(restaurant_id: int, session: Session = Depends(get_session)):
