@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, CssBaseline,TextField,Chip, AppBar, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
+  Box, CssBaseline,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
-  Dashboard as DashIcon,Edit, ShoppingCart, AccountCircle, History, ExitToApp
+  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -14,6 +14,26 @@ const drawerWidth = 240;
 const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const navigate = useNavigate();
+  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+ const [cartItems, setCartItems] = useState(() => {
+  const saved = localStorage.getItem('userCart');
+  return saved ? JSON.parse(saved) : [];
+});
+
+const addToCart = (item) => {
+  const updatedCart = [...cartItems];
+  const existingItem = updatedCart.find((i) => i.id === item.id);
+
+  if (existingItem) {
+    existingItem.quantity += 1;
+  } else {
+    updatedCart.push({ ...item, quantity: 1 });
+  }
+
+  setCartItems(updatedCart);
+  localStorage.setItem('userCart', JSON.stringify(updatedCart));
+  alert(`${item.name} added to cart!`);
+};
   const [userObj] = useState(() => {
     const saved = localStorage.getItem('userObj');
     if (!saved) return null;
@@ -24,7 +44,7 @@ const UserDashboard = () => {
       return null;
     }
   });
-
+const displayHeaderName = userObj?.user?.name || " user profile";
   useEffect(() => {
     if (!userObj) {
       navigate('/login');
@@ -47,10 +67,22 @@ const UserDashboard = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'Dashboard': return <BrowseRestaurants />;
-      case 'Add to Cart': return <CartView />;
+      case 'Dashboard': return (
+        <BrowseRestaurants userObj={userObj}
+          selectedRestaurant={selectedRestaurant} 
+          setSelectedRestaurant={setSelectedRestaurant} 
+          addToCart={addToCart}
+        />
+      );
+      case 'Add to Cart': return (
+      <CartView 
+        setActiveTab={setActiveTab} 
+        cartItems={cartItems} // Add this
+        setCartItems={setCartItems} // Add this
+      />
+    );
       case 'My Orders': return <UserOrdersView userObj={userObj} />;
-      case 'My Profile': return <UserProfileView userObj={userObj} />;
+      case 'My Profile': return <ProfileView userObj={userObj} />;
       default: return <BrowseRestaurants />;
     }
   };
@@ -65,11 +97,9 @@ const UserDashboard = () => {
             Foodie Portal
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#fff', color: '#2e7d32' }}>
-              {userObj?.name?.charAt(0) || "U"}
-            </Avatar>
+            <AccountCircle />
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              {userObj?.name || "User"}
+              {displayHeaderName}
             </Typography>
           </Box>
         </Toolbar>
@@ -121,11 +151,11 @@ const UserDashboard = () => {
     </Box>
   );
 };
-const BrowseRestaurants = () => {
+const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,addToCart }) => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-
+const [menuItems, setMenuItems] = useState([]);
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
@@ -142,6 +172,33 @@ const BrowseRestaurants = () => {
     };
     fetchRestaurants();
   }, []);
+React.useEffect(() => {
+  if (!selectedRestaurant?.id) return;
+  if (selectedRestaurant) {
+    const fetchMenu = async () => {
+      try {
+        console.log("Fetching menu for:", selectedRestaurant.id);
+        const res = await axios.get(`http://127.0.0.1:8000/menu/${selectedRestaurant.id}`);
+     const rawMenuData = res.data.menu || res.data;
+    
+    console.log("Raw Menu Data:", rawMenuData);
+
+    // 2. Extract items from the categories (starters, main course, etc.)
+    // We convert the object values into an array and grab the 'items' from each
+    const allItems = Object.values(rawMenuData).flatMap(category => {
+      return Array.isArray(category.items) ? category.items : [];
+    });
+
+    console.log("Extracted Items:", allItems);
+    setMenuItems(allItems);
+      } catch (err) {
+        console.error("Failed to load menu", err);
+        setMenuItems([]);
+      }
+    };
+    fetchMenu();
+  }
+}, [selectedRestaurant,userObj]);
 
   if (loading) {
     return (
@@ -150,7 +207,50 @@ const BrowseRestaurants = () => {
       </Box>
     );
   }
-
+if (selectedRestaurant) {
+  return (
+    <Box>
+      <Button onClick={() => setSelectedRestaurant(null)} sx={{ mb: 2, color: '#2e7d32' }}>
+        ← Back to Nearby Restaurants
+      </Button>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
+        {selectedRestaurant.name} Menu
+      </Typography>
+      <Grid container spacing={3}>
+        {Array.isArray(menuItems) && menuItems.length > 0 ? (
+        menuItems.map((item) => (
+          <Grid item xs={12} sm={6} md={4} key={item.id}>
+            <Paper sx={{ p: 2, borderRadius: 3 }}>
+              {/* Display menu item data here */}
+              <Box sx={{ height: 140, mb: 2, bgcolor: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
+        <img 
+          src={`http://127.0.0.1:8000/${item.menu_item_pic}`} 
+          alt={item.name} 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          onError={(e) => { e.target.style.display = 'none'; }} 
+        />
+      </Box>
+              <Typography variant="h6">{item.name}</Typography>
+              <Typography color="success.main" fontWeight="bold">₹{item.price}</Typography>
+            <Button 
+          variant="contained" 
+          color="success" 
+          size="small"
+          disabled={!item.is_available}
+          onClick={() => addToCart(item)}
+        >
+          {item.is_available ? "Add To Cart" : "Sold Out"}
+        </Button>
+            </Paper>
+          </Grid>
+        ))
+      ) : (
+    <Typography sx={{ p: 3 }}>No menu items available for this restaurant.</Typography>
+  )}
+      </Grid>
+    </Box>
+  );
+}
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold', color: '#2e7d32' }}>
@@ -183,13 +283,17 @@ const BrowseRestaurants = () => {
               >
                 {/* RESTAURANT IMAGE */}
                 <Box sx={{ height: 160, bgcolor: '#e0e0e0' }}>
-                  <img 
-                    src={rest.restaurant_pic 
-                      ? `http://127.0.0.1:8000/${rest.restaurant_pic}` 
-                      : "https://via.placeholder.com/300x160?text=No+Image"} 
-                    alt={rest.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                 {rest.restaurant_pic ? (
+    <img 
+      src={`http://127.0.0.1:8000/${rest.restaurant_pic}`} 
+      alt={rest.name}
+      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      // If the backend image fails to load, hide it and show the bgcolor
+      onError={(e) => { e.target.style.display = 'none'; }} 
+    />
+  ) : (
+    <Typography variant="body2" color="text.secondary">No Image Available</Typography>
+  )}
                 </Box>
 
                 <Box sx={{ p: 2 }}>
@@ -204,9 +308,16 @@ const BrowseRestaurants = () => {
                     <Typography variant="caption" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', px: 1, borderRadius: 1, fontWeight: 'bold' }}>
                       FREE DELIVERY
                     </Typography>
-                    <Button size="small" variant="contained" color="success" sx={{ borderRadius: 2 }}>
-                      View Menu
-                    </Button>
+                <Button 
+  variant="contained" 
+  color="success" 
+  onClick={(e) => {
+    e.stopPropagation(); // Prevents the Paper's onClick from firing
+    setSelectedRestaurant(rest); // 'rest' matches your .map((rest) => ...)
+  }}
+>
+  View Menu
+</Button>
                   </Box>
                 </Box>
               </Paper>
@@ -217,16 +328,8 @@ const BrowseRestaurants = () => {
     </Box>
   );
 };
-const CartView = ({ setActiveTab }) => {
-  const [cartItems, setCartItems] = useState([]);
+const CartView = ({ setActiveTab,cartItems, setCartItems}) => {
 
-  // Load cart from local storage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem('userCart');
-    if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
-    }
-  }, []);
 
   const removeFromCart = (itemId) => {
     const updatedCart = cartItems.filter(item => item.id !== itemId);
@@ -279,7 +382,7 @@ const CartView = ({ setActiveTab }) => {
           {cartItems.map((item) => (
             <Paper key={item.id} elevation={2} sx={{ p: 2, mb: 2, borderRadius: 2, display: 'flex', alignItems: 'center' }}>
               <Avatar 
-                src={item.imageUrl} 
+                src={`http://127.0.0.1:8000/${item.menu_item_pic}`} 
                 variant="rounded" 
                 sx={{ width: 80, height: 80, mr: 2 }} 
               />
@@ -417,157 +520,231 @@ const UserOrdersView = ({ userObj, setActiveTab }) => {
     </Box>
   );
 };
-const UserProfileView = ({ userObj }) => {
+const ProfileView = ({ userObj }) => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
-  
-  // State for user data (matches your restaurant profile logic)
+const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  // Initialize state with whatever is currently in userObj
   const [editData, setEditData] = useState({
-    name: userObj?.name || '',
-    mobile: userObj?.mobile || '',
-    address: userObj?.address || '',
-    newPassword: ''
+    name: userObj?.user?.name || userObj?.name || '',
+    mobile: userObj?.user?.mobile || userObj?.mobile || '', // Using mobile as per API docs
+    address: userObj?.user?.address || '',
+    password: ''
   });
+
+  // useEffect to fetch and sync profile data on component mount
+  useEffect(() => {
+    const fetchLatestProfile = async () => {
+      console.log("ProfileView: Fetching latest profile data...");
+      try {
+        const res = await axios.get(`http://127.0.0.1:8000/users/`);
+        console.log("ProfileView: Data received from server:", res.data);
+        
+        // Handle cases where data might be nested in res.data.user
+       const targetId = userObj?.user?.id || userObj?.user?.user_id;
+      const latestData = res.data.find(u => (u.id || u.user_id) === targetId);
+        // Update local state for form fields
+       if (latestData) {
+        console.log("ProfileView: Found User Data:", latestData);
+        setEditData({
+          name: latestData.name || '',
+          mobile: latestData.mobile || '', 
+          address: latestData.address || '',
+          password: ''
+        });
+      }
+        // Update localStorage to keep Sidebar/Header in sync
+        const updatedUser = {
+          ...userObj,
+          user: {
+            ...userObj.user,
+            username: latestData.username,
+            ...latestData
+          }
+        };
+        localStorage.setItem('userObj', JSON.stringify(updatedUser));
+        console.log("ProfileView: Email preserved in sync:", updatedUser.email);
+      } catch (err) {
+        console.error("ProfileView: Failed to sync profile with server", err);
+      }
+    };
+
+    if (userObj?.user?.id|| userObj?.user?.user_id) {
+      fetchLatestProfile();
+    }
+  }, [userObj]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      console.log("ProfileView: Image selected:", file.name);
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleUpdateProfile = async () => {
+    console.log("ProfileView: Initiating profile update...");
     try {
       const formData = new FormData();
       formData.append('name', editData.name);
-      formData.append('mobile', editData.mobile); // Backend expects 'mobile'
+      formData.append('mobile', editData.mobile); // Sending as 'mobile' for backend
       formData.append('address', editData.address);
       
-      if (editData.newPassword) {
-        formData.append('password', editData.newPassword);
+      if (editData.password) {
+        formData.append('password', editData.password);
       }
       if (selectedFile) {
-        formData.append('user_pic', selectedFile);
+        formData.append('profile_picture', selectedFile);
       }
 
       const response = await axios.put(
-        `http://127.0.0.1:8000/users/${userObj.user.id}/update`, 
+        `http://127.0.0.1:8000/users/update/${userObj.user.id}`, 
         formData, 
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        { headers: { 'Content-Type': 'multipart/form-data' } } 
       );
 
-      // Permanent LocalStorage update
-      const updatedUserObj = {
-        ...userObj,
-        ...editData,
-        user_pic: response.data.user_pic || userObj.user_pic
-      };
-      
-      localStorage.setItem('userObj', JSON.stringify(updatedUserObj));
-      alert("Profile updated!");
+      console.log("ProfileView: Update response:", response.data);
+
+      alert("Profile updated successfully!");
       setIsEditing(false);
+      setPreviewUrl(null);
       window.location.reload(); 
       
     } catch (err) {
-      console.error("Update error:", err);
-      alert("Failed to update profile.");
+      console.error("ProfileView: Update error:", err.response);
+      alert(err.response?.data?.detail || "Failed to update profile.");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm("Are you sure? This will permanently delete your user.");
+    if (confirmDelete) {
+      try {
+        console.log("ProfileView: Deleting account ID:", userObj.user.id);
+        await axios.delete(`http://127.0.0.1:8000/users/delete/${userObj.user.id}`);
+        localStorage.clear();
+        alert("Account deleted.");
+        navigate('/login');
+      } catch (err) {
+        console.error("ProfileView: Delete error:", err);
+        alert("Could not delete account.");
+      }
     }
   };
 
   return (
     <Box sx={{ p: 2 }}>
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#2e7d32' }}>
-        My Profile
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1a237e' }}>
+      {userObj?.user?.name} Profile
       </Typography>
       
       <Box sx={{ maxWidth: 800, mx: 'auto' }}>
         <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }}>
           
-          {/* Header Section (Same as Restaurant Dashboard) */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
             <Avatar 
-              src={previewUrl || (userObj?.user_pic ? `http://127.0.0.1:8000/${userObj.user_pic}` : "")}
-              sx={{ width: 120, height: 120, bgcolor: '#2e7d32', fontSize: '3rem', border: '4px solid #fff', boxShadow: 2 }}
+             src={previewUrl || (userObj?.user?.profile_picture 
+  ? `http://127.0.0.1:8000/${userObj.user.profile_picture}` 
+  : "")}
+              sx={{ width: 120, height: 120, bgcolor: '#1a237e', fontSize: '3rem', border: '4px solid #fff', boxShadow: 2 }}
             >
-              {!previewUrl && !userObj?.user_pic && (userObj?.name?.charAt(0) || "U")}
+              {!previewUrl && !userObj?.user?.profile_picture && (userObj?.name?.username?.user?.charAt(0) || "U")}
             </Avatar>
-            
             {isEditing && (
-              <Box>
-                <input accept="image/*" style={{ display: 'none' }} id="user-pic-file" type="file" onChange={handleFileChange} />
-                <label htmlFor="user-pic-file">
-                  <Button variant="contained" size="small" component="span" sx={{ bgcolor: '#2e7d32' }}>
-                    Upload
+              <Box sx={{ mt: 1, textAlign: 'center' }}>
+                <input accept="menu_item_pic/*" style={{ display: 'none' }} id="icon-button-file" type="file" onChange={handleFileChange} />
+                <label htmlFor="icon-button-file">
+                  <Button variant="contained" size="small" component="span" sx={{ fontSize: '10px', p: 0.5, bgcolor: '#1a237e' }}>
+                    Upload New
                   </Button>
                 </label>
               </Box>
-            )}
-            
+            )} 
             <Box>
-              <Typography variant="h5" fontWeight="bold">{userObj?.name || "User Name"}</Typography>
-              <Typography color="text.secondary">{userObj?.email}</Typography>
-              <Chip label="Customer Account" color="success" size="small" sx={{ mt: 1 }} />
+              <Typography variant="h5" fontWeight="bold">{editData.name || userObj?.user?.username || "User"}</Typography>
+              <Typography color="text.secondary">{userObj?.email|| userObj?.user?.email || "Email not found"}</Typography>
+              <Chip label="Verified user Partner" color="success" size="small" sx={{ mt: 1 }} />
             </Box>
           </Box>
 
           <Divider sx={{ my: 3 }} />
 
-          {/* Form Fields (Consistent UI) */}
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="gray">FULL NAME</Typography>
+              <Typography variant="caption" color="gray">USER NAME</Typography>
               {isEditing ? (
                 <TextField fullWidth size="small" value={editData.name} onChange={(e) => setEditData({...editData, name: e.target.value})} />
               ) : (
-                <Typography variant="body1" fontWeight="500">{userObj?.name}</Typography>
+                <Typography variant="body1" fontWeight="500">{editData.name}</Typography>
               )}
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="gray">mobile NUMBER</Typography>
+              <Typography variant="caption" color="gray">MOBILE NUMBER</Typography>
               {isEditing ? (
                 <TextField fullWidth size="small" value={editData.mobile} onChange={(e) => setEditData({...editData, mobile: e.target.value})} />
               ) : (
-                <Typography variant="body1" fontWeight="500">{userObj?.mobile || "Not Set"}</Typography>
+                <Typography variant="body1" fontWeight="500">{editData.mobile || "Not Provided"}</Typography>
               )}
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="caption" color="gray">DELIVERY ADDRESS</Typography>
+              <Typography variant="caption" color="gray">USER ADDRESS</Typography>
               {isEditing ? (
                 <TextField fullWidth size="small" multiline rows={2} value={editData.address} onChange={(e) => setEditData({...editData, address: e.target.value})} />
               ) : (
-                <Typography variant="body1" fontWeight="500">{userObj?.address || "No address saved"}</Typography>
+                <Typography variant="body1" fontWeight="500">{editData.address || "No Address on file"}</Typography>
               )}
             </Grid>
 
             {isEditing && (
               <Grid item xs={12}>
-                <Typography variant="caption" color="primary">CHANGE PASSWORD (OPTIONAL)</Typography>
-                <TextField fullWidth type="password" size="small" value={editData.newPassword} onChange={(e) => setEditData({...editData, newPassword: e.target.value})} sx={{ mt: 1 }} />
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="caption" color="primary">UPDATE PASSWORD</Typography>
+                <TextField fullWidth type="password" size="small" placeholder="New Password" value={editData.newPassword} onChange={(e) => setEditData({...editData, newPassword: e.target.value})} sx={{ mt: 1 }} />
               </Grid>
             )}
           </Grid>
 
-          {/* Buttons */}
           <Box sx={{ mt: 5, display: 'flex', gap: 2 }}>
             {!isEditing ? (
-              <Button variant="contained" startIcon={<Edit />} sx={{ bgcolor: '#2e7d32' }} onClick={() => setIsEditing(true)}>
-                Edit Profile
-              </Button>
+              <>
+                <Button variant="contained" startIcon={<EditIcon />} sx={{ bgcolor: '#1a237e' }} onClick={() => setIsEditing(true)}>
+                  Edit Profile
+                </Button>
+                <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={handleDeleteAccount}>
+                  Delete Account
+                </Button>
+              </>
             ) : (
               <>
                 <Button variant="contained" color="success" onClick={handleUpdateProfile}>Save Changes</Button>
-                <Button variant="text" color="inherit" onClick={() => { setIsEditing(false); setPreviewUrl(null); }}>Cancel</Button>
+                <Button variant="text" color="inherit" onClick={() => { setIsEditing(false); setPreviewUrl(null); }}>
+                  Cancel
+                </Button>
               </>
             )}
           </Box>
         </Paper>
       </Box>
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 'bold' }}>Delete Account?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This action is permanent. All your data will be removed from our servers. 
+            Are you sure you want to proceed?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpenDeleteDialog(false)} color="inherit">Cancel</Button>
+          <Button onClick={handleDeleteAccount} variant="contained" color="error">Confirm Delete</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
+    
   );
 };
 export default UserDashboard;

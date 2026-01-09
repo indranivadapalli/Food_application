@@ -5,7 +5,7 @@ import {
   ListItemButton, ListItemIcon, Button, ListItemText,MenuItem, Divider, Container, Grid, Chip, CircularProgress
 } from '@mui/material';
 import {
-  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, AddBox, AccountCircle,ShoppingCart, Edit, Delete, ExitToApp, Menu as MenuIcon
+  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, AddBox, AccountCircle,ShoppingCart, ExitToApp, Menu as MenuIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -278,14 +278,14 @@ export const DashboardHome = ({ userObj }) => {
             <Paper elevation={1} sx={{ height: '240px', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderLeft: '4px solid #1a237e' }}>
               <Box sx={{ height: '140px', width: '100%', bgcolor: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 {item.menu_item_pic ? (
-                  <img src={getImageUrl(item.menu_item_pic)} alt={item.item_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={getImageUrl(item.menu_item_pic)} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <MenuIcon sx={{ fontSize: 40, color: '#bdbdbd' }} />
                 )}
               </Box>
               <Box sx={{ p: 1.5, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.item_name}</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', WebkitLineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.name}</Typography>
                   <Typography color="primary" sx={{ fontWeight: 'bold' }}>₹{item.price}</Typography>
                 </Box>
                 <Typography variant="caption" color="text.secondary">Category ID: {item.category_id}</Typography>
@@ -305,10 +305,12 @@ export const MenuView = ({ userObj }) => {
 
   useEffect(() => {
     const fetchMenu = async () => {
+      
       if (!userObj?.restaurant?.id) { setLoading(false); return; }
       try {
         const res = await axios.get(`${API_BASE_URL}/menu/${userObj.restaurant.id}`);
-        const menuData = res.data.menu;
+        const menuData = res.data?.menu;
+        console.log("Items fetched :", res);
         let allItems = [];
         if (menuData && typeof menuData === 'object') {
           Object.values(menuData).forEach(cat => {
@@ -335,11 +337,11 @@ export const MenuView = ({ userObj }) => {
           <Grid item xs={12} sm={6} md={4} key={item.item_id}>
             <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ height: 140, bgcolor: '#e0e0e0' }}>
-                {item.menu_item_pic && <img src={`${API_BASE_URL}/${item.menu_item_pic}`} alt={item.item_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {item.menu_item_pic && <img src={`${API_BASE_URL}/${item.menu_item_pic}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
               </Box>
               <Box sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{item.item_name}</Typography>
+                  <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{item.name}</Typography>
                   <Chip label={`₹${item.price}`} size="small" color="primary" />
                 </Box>
                 <Typography variant="body2" color="text.secondary">Category ID: {item.category_id}</Typography>
@@ -360,7 +362,7 @@ export const MenuView = ({ userObj }) => {
 // --- ADD ITEM FORM COMPONENT ---
 export const AddItemForm = ({ userObj }) => {
   const [formData, setFormData] = useState({
-    item_name: '', price: '', menu_item_pic: '', category_id: '', is_available: true
+    name: '', price: '', menu_item_pic: '', category_id: '', is_available: true
   });
 
   const categories = ["tiffins", "starters", "main course", "soft drinks", "deserts"];
@@ -377,7 +379,7 @@ export const AddItemForm = ({ userObj }) => {
     try {
       // FIXING PAYLOAD FOR BACKEND SCHEMA (422 ERROR FIX)
       const payload = {
-        item_name: formData.item_name,       // Backend expects 'item_name'
+        name: formData.name,       // Backend expects 'name'
         price: parseFloat(formData.price),   // Ensure float/number
         menu_item_pic: formData.menu_item_pic,
         category_id: CATEGORY_MAP[formData.category_id.toLowerCase()], // Must be INT ID
@@ -386,7 +388,7 @@ export const AddItemForm = ({ userObj }) => {
 console.log("Submitting Payload:", payload);
       await axios.post(`${API_BASE_URL}/menu/${userObj.restaurant.id}/add`, payload);
       alert("Item added successfully!");
-      setFormData({ item_name: '', price: '', menu_item_pic: '', category_id: '', is_available: true });
+      setFormData({ name: '', price: '', menu_item_pic: '', category_id: '', is_available: true });
     } catch (err) {
       console.error("Submission error:", err.response?.data);
       alert(`Error: ${JSON.stringify(err.response?.data?.detail)}`);
@@ -400,7 +402,7 @@ console.log("Submitting Payload:", payload);
         <form onSubmit={handleSubmit}>
           <Grid container spacing={3}>
             <Grid item xs={12}>
-              <TextField fullWidth label="Item Name" name="item_name" value={formData.item_name} onChange={handleChange} required />
+              <TextField fullWidth label="Item Name" name="name" value={formData.name} onChange={handleChange} required />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField select fullWidth label="Category" name="category_id" value={formData.category_id} onChange={handleChange} required>
@@ -490,7 +492,7 @@ const handleCompleteOrder = async (orderId) => {
                 <Box>
                   <Typography variant="subtitle1" fontWeight="bold">Order #{order.id}</Typography>
                   {order.items.map((item, i) => (
-                    <Typography key={i} variant="body2">{item.quantity}x {item.item_name}</Typography>
+                    <Typography key={i} variant="body2">{item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
                 <Box sx={{ textAlign: 'right' }}>

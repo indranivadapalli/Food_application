@@ -124,7 +124,7 @@ def update_menu_item(
         "price": menu_item.price,
         "category_id": menu_item.category_id,
         "is_available": menu_item.is_available,
-        "menu_item_pic": build_image_url(menu_item.menu_item_pic)
+        "menu_item_pic": menu_item.menu_item_pic
     }
 }
 
@@ -198,7 +198,7 @@ def get_restaurant_menu(
             "name": item.name,
             "price": item.price,
             "is_available": item.is_available,
-            "menu_item_pic": build_image_url(item.menu_item_pic)
+            "menu_item_pic": item.menu_item_pic
         }
                 for item in menu_items if item.category_id == category.id
             ]
@@ -246,7 +246,7 @@ def get_menu_item(
                 "name": menu_item.name,
                 "price": menu_item.price,
                 "is_available": menu_item.is_available,
-                "menu_item_pic": build_image_url(menu_item.menu_item_pic),
+                "menu_item_pic": menu_item.menu_item_pic,
 
                 "category": {
                     "id": category.id,
@@ -331,7 +331,7 @@ def get_items_by_category(
                     "name": item.name,
                     "price": item.price,
                     "is_available": item.is_available,
-                    "menu_item_pic": build_image_url(item.menu_item_pic)
+                    "menu_item_pic": item.menu_item_pic
                 }
                 for item in items
             ]
@@ -395,7 +395,7 @@ def search_item_restaurant(
             "name": item.name,
             "price": item.price,
             "is_available": item.is_available,
-            "menu_item_pic": build_image_url(item.menu_item_pic),
+            "menu_item_pic": item.menu_item_pic,
 
             "restaurant": {
                 "id": item.restaurant.id,
