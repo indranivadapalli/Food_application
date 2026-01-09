@@ -328,9 +328,10 @@ if (selectedRestaurant) {
     </Box>
   );
 };
-const CartView = ({ setActiveTab,cartItems, setCartItems}) => {
+const CartView = ({ setActiveTab,cartItems, setCartItems, userObj}) => {
 
-
+const [openCheckout, setOpenCheckout] = useState(false);
+  const [orderPlacing, setOrderPlacing] = useState(false);
   const removeFromCart = (itemId) => {
     const updatedCart = cartItems.filter(item => item.id !== itemId);
     setCartItems(updatedCart);
@@ -340,7 +341,59 @@ const CartView = ({ setActiveTab,cartItems, setCartItems}) => {
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
-
+const handlePlaceOrder = async () => {
+    setOrderPlacing(true);
+    try {
+      // Example API structure - adjust to your backend endpoint
+      const orderData = {
+        user_id: userObj.user.id,
+        items: cartItems,
+        total_amount: calculateTotal(),
+        status: 'pending'
+      };
+      
+      // await axios.post('http://127.0.0.1:8000/orders/place', orderData);
+      
+      // Clear cart after success
+      setCartItems([]);
+      localStorage.removeItem('userCart');
+      setOpenCheckout(false);
+      alert("Order placed successfully!");
+      setActiveTab('My Orders'); // Redirect to orders page
+    } catch (err) {
+      console.error("Order failed", err);
+      alert("Failed to place order.");
+    } finally {
+      setOrderPlacing(false);
+    }
+  };
+  {/* Checkout Confirmation Dialog */}
+<Dialog open={openCheckout} onClose={() => setOpenCheckout(false)}>
+  <DialogTitle sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
+    Confirm Your Order
+  </DialogTitle>
+  <DialogContent>
+    <DialogContentText>
+      You are about to place an order for **₹{calculateTotal()}**. 
+      Please confirm your delivery details.
+    </DialogContentText>
+    <Box sx={{ mt: 2 }}>
+       <Typography variant="subtitle2">Deliver to:</Typography>
+       <Typography variant="body1" fontWeight="bold">{userObj?.user?.username}</Typography>
+    </Box>
+  </DialogContent>
+  <DialogActions sx={{ p: 2 }}>
+    <Button onClick={() => setOpenCheckout(false)} color="inherit">Cancel</Button>
+    <Button 
+      onClick={handlePlaceOrder} 
+      variant="contained" 
+      color="success" 
+      disabled={orderPlacing}
+    >
+      {orderPlacing ? <CircularProgress size={24} /> : "Confirm Order"}
+    </Button>
+  </DialogActions>
+</Dialog>
   if (cartItems.length === 0) {
     return (
       <Box sx={{ 
@@ -425,9 +478,15 @@ const CartView = ({ setActiveTab,cartItems, setCartItems}) => {
               <Typography variant="h6">Total</Typography>
               <Typography variant="h6" color="success.main">₹{calculateTotal()}</Typography>
             </Box>
-            <Button variant="contained" color="success" fullWidth size="large">
-              Checkout
-            </Button>
+           <Button 
+  variant="contained" 
+  color="success" 
+  fullWidth 
+  size="large"
+  onClick={() => setOpenCheckout(true)} // Opens the dialog
+>
+  Checkout
+</Button>
           </Paper>
         </Grid>
       </Grid>
@@ -442,7 +501,7 @@ const UserOrdersView = ({ userObj, setActiveTab }) => {
     const fetchUserOrders = async () => {
       try {
         // Replace with your actual user orders endpoint
-        const res = await axios.get(`http://127.0.0.1:8000/orders/user/${userObj.id}`);
+        const res = await axios.get(`http://127.0.0.1:8000/orders/user/${userObj.user.id}/orders`);
         
         // Extracting from { status: 'success', orders: [...] } to avoid .filter errors
         const ordersData = res.data.orders || res.data||[];
