@@ -11,7 +11,8 @@ from routers.category import router as category_router
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+# Mount static files directory
+app.mount("/static/menu_items", StaticFiles(directory="uploads/menu_items"), name="menu_items")
 
 @app.on_event("startup")
 def on_startup():

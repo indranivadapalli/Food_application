@@ -15,11 +15,6 @@ logger = get_logger("MenuAPI")
 MENU_UPLOAD_DIR = "uploads/menu_items"
 os.makedirs(MENU_UPLOAD_DIR, exist_ok=True)
 
-def build_image_url(file_path: str | None):
-    if not file_path:
-        return None
-    return f"http://localhost:8000/static/{file_path.replace('uploads/', '')}"
-
 @router.post("/{restaurant_id}/add")
 def add_menu_item(
     restaurant_id: int,
@@ -116,17 +111,15 @@ def update_menu_item(
         session.refresh(menu_item)
 
         return {
-    "status": "success",
-    "message": "Menu item added successfully",
-    "menu_item": {
-        "id": menu_item.id,
-        "name": menu_item.name,
-        "price": menu_item.price,
-        "category_id": menu_item.category_id,
-        "is_available": menu_item.is_available,
-        "menu_item_pic": build_image_url(menu_item.menu_item_pic)
-    }
-}
+            "status": "success",
+            "message": "Menu item updated successfully",
+            "menu_item": {
+                "id": menu_item.id,
+                "name": menu_item.name,
+                "price": menu_item.price,
+                "is_available": menu_item.is_available
+            }
+        }
 
     except Exception as e:
         logger.error("Update menu item failed: %s", str(e), exc_info=True)
@@ -194,12 +187,12 @@ def get_restaurant_menu(
         for category in categories:
             category_items = [
                 {
-            "id": item.id,
-            "name": item.name,
-            "price": item.price,
-            "is_available": item.is_available,
-            "menu_item_pic": build_image_url(item.menu_item_pic)
-        }
+                    "id": item.id,
+                    "name": item.name,
+                    "price": item.price,
+                    "is_available": item.is_available,
+                    "menu_item_pic": item.menu_item_pic
+                }
                 for item in menu_items if item.category_id == category.id
             ]
             
@@ -246,8 +239,7 @@ def get_menu_item(
                 "name": menu_item.name,
                 "price": menu_item.price,
                 "is_available": menu_item.is_available,
-                "menu_item_pic": build_image_url(menu_item.menu_item_pic),
-
+                "menu_item_pic": menu_item.menu_item_pic,
                 "category": {
                     "id": category.id,
                     "name": category.name,
@@ -331,7 +323,7 @@ def get_items_by_category(
                     "name": item.name,
                     "price": item.price,
                     "is_available": item.is_available,
-                    "menu_item_pic": build_image_url(item.menu_item_pic)
+                    "menu_item_pic": item.menu_item_pic
                 }
                 for item in items
             ]
@@ -395,8 +387,7 @@ def search_item_restaurant(
             "name": item.name,
             "price": item.price,
             "is_available": item.is_available,
-            "menu_item_pic": build_image_url(item.menu_item_pic),
-
+            "menu_item_pic": item.menu_item_pic,
             "restaurant": {
                 "id": item.restaurant.id,
                 "name": item.restaurant.name,
