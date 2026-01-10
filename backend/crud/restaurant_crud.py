@@ -19,13 +19,14 @@ def create_restaurant(session: Session, data: dict) -> Restaurant:
 
 
 def verify_restaurant(session: Session, email: str, password: str):
+    print(f" email {email} password {password}")
     restaurant = session.exec(
         select(Restaurant).where(
             Restaurant.email == email,
             Restaurant.password == password
         )
     ).first()
-
+    print(f"get restaurant {restaurant}")
     if not restaurant:
         return False, None
 

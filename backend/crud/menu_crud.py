@@ -125,9 +125,6 @@ def search_dashboard_menu(
         )
     )
 
-
-
-
     if available_only:
         stmt = stmt.where(Menu.is_available == True)
     stmt = stmt.distinct(Menu.id)
