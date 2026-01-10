@@ -5,7 +5,7 @@ import {
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
-  Search as SearchIcon,Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
+  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
 } from '@mui/icons-material';
 
 import axios from 'axios';
@@ -217,7 +217,6 @@ const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,a
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
 const [menuItems, setMenuItems] = useState([]);
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -225,7 +224,6 @@ const [menuItems, setMenuItems] = useState([]);
         const res = await axios.get('http://127.0.0.1:8000/restaurants');
 
         const data = res.data.restaurants || res.data; 
-        console.log("Fetched Restaurants:", res.data);
         setRestaurants(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to fetch restaurants", err);
@@ -265,18 +263,12 @@ React.useEffect(() => {
 }, [selectedRestaurant,userObj]);
 
   if (loading) {
-   return (
-    <Grid container spacing={3}>
-      {[1, 2, 3, 4, 5, 6].map((n) => (
-        <Grid item xs={12} sm={6} md={4} key={n}>
-          <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 3 }} />
-          <Skeleton variant="text" sx={{ mt: 1, fontSize: '1.5rem' }} width="60%" />
-          <Skeleton variant="text" width="40%" />
-        </Grid>
-      ))}
-    </Grid>
-  );
-}
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+        <CircularProgress color="success" />
+      </Box>
+    );
+  }
 if (selectedRestaurant) {
   return (
     <Box>
@@ -367,9 +359,7 @@ const filteredCount = restaurants.filter(r =>
         </Paper>
       ) : (
         <Grid container spacing={3}>
-          {restaurants
-  .filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  .map((rest) => (
+          {restaurants.map((rest) => (
             <Grid item xs={12} sm={6} md={4} key={rest.id}>
   <Paper 
     elevation={2} 

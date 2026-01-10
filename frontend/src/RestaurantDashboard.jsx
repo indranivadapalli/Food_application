@@ -235,7 +235,7 @@ export const DashboardHome = ({ userObj }) => {
                 </Box>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ minHeight: '80px' }}>
-                  {order.items?.map((item, idx) => (
+                  {order.items.map((item, idx) => (
                     <Typography key={idx} variant="body2">• {item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
@@ -361,8 +361,6 @@ export const MenuView = ({ userObj }) => {
 
 // --- ADD ITEM FORM COMPONENT ---
 export const AddItemForm = ({ userObj }) => {
-  const [selectedFileName, setSelectedFileName] = useState("");
-
   const [formData, setFormData] = useState({
     name: '', price: '', menu_item_pic: '', category_id: '', is_available: true
   });
@@ -375,51 +373,27 @@ export const AddItemForm = ({ userObj }) => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    if (!userObj?.restaurant?.id) return alert("Restaurant ID not found");
 
-  if (!userObj?.restaurant?.id) {
-    alert("Restaurant ID not found");
-    return;
-  }
-
-  const categoryId = CATEGORY_MAP[formData.category_id?.toLowerCase()];
-  if (!categoryId) {
-    alert("Invalid category selected");
-    return;
-  }
-
-  try {
-    const formDataObj = new FormData();
-    formDataObj.append("item_name", formData.name); // 🔥 FIXED
-    formDataObj.append("price", parseFloat(formData.price));
-    formDataObj.append("category_id", categoryId);
-    formDataObj.append("is_available", formData.is_available);
-
-    if (formData.menu_item_pic instanceof File) {
-      formDataObj.append("menu_item_pic", formData.menu_item_pic);
+    try {
+      // FIXING PAYLOAD FOR BACKEND SCHEMA (422 ERROR FIX)
+      const payload = {
+        name: formData.name,       // Backend expects 'name'
+        price: parseFloat(formData.price),   // Ensure float/number
+        menu_item_pic: formData.menu_item_pic,
+        category_id: CATEGORY_MAP[formData.category_id.toLowerCase()], // Must be INT ID
+        is_available: Boolean(formData.is_available)
+      };
+console.log("Submitting Payload:", payload);
+      await axios.post(`${API_BASE_URL}/menu/${userObj.restaurant.id}/add`, payload);
+      alert("Item added successfully!");
+      setFormData({ name: '', price: '', menu_item_pic: '', category_id: '', is_available: true });
+    } catch (err) {
+      console.error("Submission error:", err.response?.data);
+      alert(`Error: ${JSON.stringify(err.response?.data?.detail)}`);
     }
-
-    await axios.post(
-      `${API_BASE_URL}/menu/${userObj.restaurant.id}/add`,
-      formDataObj,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
-
-    alert("Item added successfully!");
-    setFormData({
-      name: '',
-      price: '',
-      menu_item_pic: '',
-      category_id: '',
-      is_available: true
-    });
-
-  } catch (err) {
-    console.error("Submission error:", err.response?.data);
-    alert(JSON.stringify(err.response?.data?.detail));
-  }
-};
-
+  };
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
@@ -432,7 +406,7 @@ export const AddItemForm = ({ userObj }) => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField select fullWidth label="Category" name="category_id" value={formData.category_id} onChange={handleChange} required>
-                {categories?.map((cat) => (
+                {categories.map((cat) => (
                   <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                 ))}
               </TextField>
@@ -440,32 +414,9 @@ export const AddItemForm = ({ userObj }) => {
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} required />
             </Grid>
-            <Button variant="outlined" component="label" fullWidth>
-  Upload Item Image
-  <input
-    hidden
-    type="file"
-    accept="image/*"
-   onChange={(e) => {
-  const file = e.target.files[0];
-  if (file) {
-    setFormData({ ...formData, menu_item_pic: file });
-    setSelectedFileName(file.name); // 👈 store file name
-  }
-}}
-
-  />
-</Button>
-{selectedFileName && (
-  <Typography
-    variant="caption"
-    color="text.secondary"
-    sx={{ mt: 1, display: 'block' }}
-  >
-    Selected file: {selectedFileName}
-  </Typography>
-)}
-
+            <Grid item xs={12}>
+              <TextField fullWidth label="Image URL" name="menu_item_pic" placeholder="https://example.com/food.jpg" value={formData.menu_item_pic} onChange={handleChange} />
+            </Grid>
             <Grid item xs={12}>
               <FormControlLabel
                 control={<Switch checked={formData.is_available} onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })} color="primary" />}
@@ -540,7 +491,7 @@ const handleCompleteOrder = async (orderId) => {
               <Paper elevation={2} sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '6px solid #d32f2f' }}>
                 <Box>
                   <Typography variant="subtitle1" fontWeight="bold">Order #{order.id}</Typography>
-                  {order.items?.map((item, i) => (
+                  {order.items.map((item, i) => (
                     <Typography key={i} variant="body2">{item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
