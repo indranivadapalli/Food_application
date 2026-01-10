@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, CssBaseline,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
+  Box, CssBaseline,Snackbar,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
@@ -15,6 +15,11 @@ const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const navigate = useNavigate();
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+
+const showNotify = (msg, sev = 'success') => {
+  setNotification({ open: true, message: msg, severity: sev });
+};
  const [cartItems, setCartItems] = useState(() => {
   const saved = localStorage.getItem('userCart');
   return saved ? JSON.parse(saved) : [];
@@ -148,6 +153,15 @@ const displayHeaderName = userObj?.user?.name || " user profile";
           {renderContent()}
         </Container>
       </Box>
+      <Snackbar 
+  open={notification.open} 
+  autoHideDuration={3000} 
+  onClose={() => setNotification({ ...notification, open: false })}
+>
+  <Alert severity={notification.severity} variant="filled" sx={{ width: '100%' }}>
+    {notification.message}
+  </Alert>
+</Snackbar>
     </Box>
   );
 };

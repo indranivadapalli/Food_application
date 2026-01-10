@@ -235,7 +235,7 @@ export const DashboardHome = ({ userObj }) => {
                 </Box>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ minHeight: '80px' }}>
-                  {order.items.map((item, idx) => (
+                  {order.items?.map((item, idx) => (
                     <Typography key={idx} variant="body2">• {item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
@@ -406,7 +406,7 @@ console.log("Submitting Payload:", payload);
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField select fullWidth label="Category" name="category_id" value={formData.category_id} onChange={handleChange} required>
-                {categories.map((cat) => (
+                {categories?.map((cat) => (
                   <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                 ))}
               </TextField>
@@ -491,7 +491,7 @@ const handleCompleteOrder = async (orderId) => {
               <Paper elevation={2} sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '6px solid #d32f2f' }}>
                 <Box>
                   <Typography variant="subtitle1" fontWeight="bold">Order #{order.id}</Typography>
-                  {order.items.map((item, i) => (
+                  {order.items?.map((item, i) => (
                     <Typography key={i} variant="body2">{item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
