@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, CssBaseline,Snackbar,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
+  Box, CssBaseline,Skeleton,Snackbar,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
-  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
+  Search as SearchIcon,Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -169,6 +169,7 @@ const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,a
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
 const [menuItems, setMenuItems] = useState([]);
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -216,12 +217,18 @@ React.useEffect(() => {
 }, [selectedRestaurant,userObj]);
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-        <CircularProgress color="success" />
-      </Box>
-    );
-  }
+   return (
+    <Grid container spacing={3}>
+      {[1, 2, 3, 4, 5, 6].map((n) => (
+        <Grid item xs={12} sm={6} md={4} key={n}>
+          <Skeleton variant="rectangular" height={160} sx={{ borderRadius: 3 }} />
+          <Skeleton variant="text" sx={{ mt: 1, fontSize: '1.5rem' }} width="60%" />
+          <Skeleton variant="text" width="40%" />
+        </Grid>
+      ))}
+    </Grid>
+  );
+}
 if (selectedRestaurant) {
   return (
     <Box>
@@ -271,7 +278,17 @@ if (selectedRestaurant) {
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold', color: '#2e7d32' }}>
         Nearby Restaurants
       </Typography>
-
+<TextField
+  fullWidth
+  variant="outlined"
+  placeholder="Search for restaurants or cuisines..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  sx={{ mb: 4, bgcolor: 'white', borderRadius: 2 }}
+  InputProps={{
+    startAdornment: <SearchIcon sx={{ color: 'gray', mr: 1 }} />,
+  }}
+/>
       {restaurants.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: '#f1f8e9' }}>
           <Typography variant="h6" color="text.secondary">
@@ -283,7 +300,9 @@ if (selectedRestaurant) {
         </Paper>
       ) : (
         <Grid container spacing={3}>
-          {restaurants.map((rest) => (
+          {restaurants
+  .filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  .map((rest) => (
             <Grid item xs={12} sm={6} md={4} key={rest.id}>
               <Paper 
                 elevation={3} 
