@@ -513,8 +513,7 @@ const UserOrdersView = ({ userObj, setActiveTab }) => {
         setLoading(false);
       }
     };
-
-    if (userObj?.id) fetchUserOrders();
+ fetchUserOrders();
   }, [userObj]);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress color="success" /></Box>;
@@ -557,7 +556,7 @@ const UserOrdersView = ({ userObj, setActiveTab }) => {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="h6">Order #{order.id}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {new Date(order.createdAt).toLocaleDateString()}
+                    {new Date(order.created_at || order.createdAt).toLocaleDateString()}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={3} sx={{ textAlign: { xs: 'left', sm: 'center' }, my: { xs: 1, sm: 0 } }}>
@@ -568,7 +567,7 @@ const UserOrdersView = ({ userObj, setActiveTab }) => {
                   />
                 </Grid>
                 <Grid item xs={12} sm={3} sx={{ textAlign: 'right' }}>
-                  <Typography variant="h6" color="success.main">₹{order.totalAmount}</Typography>
+                  <Typography variant="h6" color="success.main">₹{order.total_amount || order.totalAmount}</Typography>
                   <Button size="small" variant="text" color="primary">View Details</Button>
                 </Grid>
               </Grid>
