@@ -176,6 +176,7 @@ const [menuItems, setMenuItems] = useState([]);
         const res = await axios.get('http://127.0.0.1:8000/restaurants');
 
         const data = res.data.restaurants || res.data; 
+        console.log("Fetched Restaurants:", res.data);
         setRestaurants(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to fetch restaurants", err);
