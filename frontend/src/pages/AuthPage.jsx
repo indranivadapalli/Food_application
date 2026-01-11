@@ -94,38 +94,41 @@ const AuthPage = () => {
           setError("Please ensure password requirements are met.");
           return;
         }
+const formData = new FormData();
 
-        const signupData = {
-          email: emailValue,
-          password: password,
-          name: e.target.name.value,
-          mobile: e.target.mobile.value,
-          address: e.target.address.value,
-          role: currentRole
-        };
+formData.append("name", e.target.name.value);
+formData.append("email", emailValue);
+formData.append("mobile", e.target.mobile.value);
+formData.append("address", e.target.address.value);
+formData.append("password", password);
+formData.append("confirm_password", confirmPassword);
+formData.append("role", currentRole);
         
-        if (currentRole === 'delivery') {
-          signupData.vehicle = e.target.vehicle?.value || "Bike";
-        }
+      console.log("Sending multipart/form-data:");
+for (let pair of formData.entries()) {
+  console.log(pair[0], pair[1]);
+}
 
-        console.log("Sending Registration Payload:", signupData);
-        response = await API.post(endpoint, signupData);
+response = await API.post(endpoint, formData);
       }
 
       // --- LOG SUCCESS DATA ---
-      console.log("Server Response Received:", response.data);
-      if (response.data.status === "error") {
-        console.error("Login rejected by server:", response.data.message);
-        setError(response.data.message || "Invalid credentials.");
-        return; // STOP the function here so it doesn't navigate
-      }
-      console.log("Authentication successful, proceeding to dashboard...");
-      // localStorage.setItem('userObj', response.data);
-      localStorage.setItem('userObj', JSON.stringify(response.data));
-      // Since you don't need token or ID, we just save the role for routing purposes
-      localStorage.setItem('role', currentRole);
-    
-      navigate(`/${currentRole}-dashboard`);
+     // --- LOG SUCCESS DATA ---
+console.log("Server Response Received:", response.data);
+
+//  DO NOT navigate again for LOGIN
+if (!isLogin) {
+  if (response.data.status === "error") {
+    console.error("Register rejected by server:", response.data.message);
+    setError(response.data.message || "Registration failed.");
+    return;
+  }
+
+  localStorage.setItem('userObj', JSON.stringify(response.data));
+  localStorage.setItem('role', currentRole);
+  navigate(`/${currentRole}-dashboard`);
+}
+
 
     } catch (err) {
       console.error("--- Auth Attempt Failed ---");

@@ -5,19 +5,17 @@ import {
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
-  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, ShoppingCart, AccountCircle, History, ExitToApp
+  Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon,Search as SearchIcon, AccountCircle, History, ExitToApp
 } from '@mui/icons-material';
 
 import axios from 'axios';
 const drawerWidth = 240;
 
 const UserDashboard = () => {
-   const userObj = JSON.parse(localStorage.getItem("userObj"));
-
-  const [cartItems, setCartItems] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [newOrderId, setNewOrderId] = useState(null);
-
+  const [refreshOrders, setRefreshOrders] = useState(0);
+   const userObj = JSON.parse(localStorage.getItem("userObj"));
+   console.log(" User object from localStorage:", userObj);
   const [activeTab, setActiveTab] = useState('Dashboard');
   const navigate = useNavigate();
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
@@ -25,54 +23,13 @@ const UserDashboard = () => {
 const showNotify = (msg, sev = 'success') => {
   setNotification({ open: true, message: msg, severity: sev });
 };
-  const updateQuantity = async (cartId, newQty) => {
-  try {
-    await axios.put('http://127.0.0.1:8000/cart/update', {
-      cart_id: cartId,
-      quantity: newQty
-    });
-    fetchCart();
-  } catch (err) {
-    console.error("Quantity update failed", err);
-  }
-};
+  
 
-const fetchCart = async () => {
-  try {
-    const res = await axios.get(
-      `http://127.0.0.1:8000/cart/${userObj.user.id}`
-    );
-    setCartItems(res.data);
-  } catch (err) {
-    console.error("Failed to fetch cart", err);
-  }
-};
-
-useEffect(() => {
-  if (userObj?.user?.id) {
-    fetchCart();
-  }
-}, [userObj?.user?.id]);
-
-const addToCart = async (item) => {
-  try {
-    await axios.post('http://127.0.0.1:8000/cart/create', {
-      user_id: userObj.user.id,
-      food_id: item.id,
-      quantity: 1
-    });
-
-    showNotify(`${item.name} added to cart`, 'success');
-    fetchCart(); // reload from backend
-  } catch (err) {
-    console.error("Add to cart failed", err);
-    showNotify("Failed to add item", "error");
-  }
-};
 
 const displayHeaderName = userObj?.user?.name || " user profile";
   useEffect(() => {
     if (!userObj) {
+       console.log("No user found → redirecting to /login");
       navigate('/login');
     }
   }, [userObj, navigate]);
@@ -80,57 +37,48 @@ const displayHeaderName = userObj?.user?.name || " user profile";
   if (!userObj) return null;
 
   const handleLogout = () => {
+     console.log("Logging out user:", userObj);
    localStorage.removeItem('userObj');
-console.log("👋 User logged out, backend data preserved");
+console.log(" User logged out, backend data preserved");
 navigate('/login');
   };
 
-  const menuItems = [
+  const menuList = [
     { text: 'Dashboard', icon: <DashIcon /> },
-    { text: 'Add to Cart', icon: <ShoppingCart /> },
     { text: 'My Orders', icon: <History /> },
     { text: 'My Profile', icon: <AccountCircle /> },
   ];
 
   const renderContent = () => {
+    console.log(" Active Tab:", activeTab);
     switch (activeTab) {
       case 'Dashboard': return (
         <BrowseRestaurants userObj={userObj}
           selectedRestaurant={selectedRestaurant} 
           setSelectedRestaurant={setSelectedRestaurant} 
-          addToCart={addToCart}
-        />
-      );
-     case 'Add to Cart': return (
-  <CartView 
-    setActiveTab={setActiveTab}
-    cartItems={cartItems}
-    setCartItems={setCartItems}
-    updateQuantity={updateQuantity}
-    userObj={userObj}
-    selectedRestaurant={selectedRestaurant}
-    showNotify={showNotify}
-    setNewOrderId={setNewOrderId}   // 🔥 ADD THIS
-  />
+        showNotify={showNotify}
+  setActiveTab={setActiveTab}
+   setRefreshOrders={setRefreshOrders}
+    orders={orders}
+   setOrders={setOrders}
+          />
 );
       case 'My Orders': 
   return (
-    <UserOrdersView 
-      userObj={userObj}
-      showNotify={showNotify}
-  newOrderId={newOrderId}
-  clearNewOrderId={() => setNewOrderId(null)}
-      setActiveTab={setActiveTab}
-    />
+   <UserOrdersView 
+  userObj={userObj}
+  showNotify={showNotify}
+  setActiveTab={setActiveTab}
+   refreshOrders={refreshOrders}
+   orders={orders}
+   setOrders={setOrders}
+/>
+
   );
       case 'My Profile': return <ProfileView userObj={userObj} />;
       default: return <BrowseRestaurants />;
     }
   };
-const totalCartCount = cartItems.reduce(
-  (sum, item) => sum + item.quantity,
-  0
-);
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
@@ -161,21 +109,22 @@ const totalCartCount = cartItems.reduce(
         <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
           <List>
-            {menuItems.map((item) => (
+            {menuList?.map((item) => (
               <ListItem key={item.text} disablePadding>
                 <ListItemButton 
                   selected={activeTab === item.text}
-                  onClick={() => setActiveTab(item.text)}
+                  onClick={() =>
+                    { setActiveTab(item.text);
+                       if(item.text === "My Orders"){
+       setRefreshOrders(prev => prev + 1); // force refresh
+    }}
+                    
+                  }
                 >
-                <ListItemIcon sx={{ color: activeTab === item.text ? '#2e7d32' : 'inherit' }}>
-  {item.text === 'Add to Cart' ? (
-   <Badge badgeContent={totalCartCount} color="error">
-  <ShoppingCart />
-</Badge>
-  ) : (
-    item.icon
-  )}
+              <ListItemIcon sx={{ color: activeTab === item.text ? '#2e7d32' : 'inherit' }}>
+  {item.icon}
 </ListItemIcon>
+
                   <ListItemText primary={item.text} />
                 </ListItemButton>
               </ListItem>
@@ -213,19 +162,31 @@ const totalCartCount = cartItems.reduce(
     </Box>
   );
 };
-const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,addToCart }) => {
+const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,showNotify,setActiveTab,setRefreshOrders,setOrders}) => {
   const [restaurants, setRestaurants] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-const [menuItems, setMenuItems] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null);
+const [quantity, setQuantity] = useState(1);
+const [openOrderDialog, setOpenOrderDialog] = useState(false);
+const handleopenOrderDialog = (item) => {
+  console.log("Order dialog opened for item:", item);
+  setSelectedItem(item);
+  setQuantity(1);
+  setOpenOrderDialog(true);
+};
+const [menuList, setMenuList] = useState([]);
   useEffect(() => {
+     console.log(" Fetching restaurants...");
     const fetchRestaurants = async () => {
       try {
+        
         const res = await axios.get('http://127.0.0.1:8000/restaurants');
-
+console.log(" Restaurants API response:", res.data);
         const data = res.data.restaurants || res.data; 
-        setRestaurants(Array.isArray(data) ? data : []);
+        setRestaurants(Array?.isArray(data) ? data : []);
       } catch (err) {
+
         console.error("Failed to fetch restaurants", err);
         setRestaurants([]);
       } finally {
@@ -234,8 +195,72 @@ const [menuItems, setMenuItems] = useState([]);
     };
     fetchRestaurants();
   }, []);
-React.useEffect(() => {
+  const handlePlaceOrder = async () => {
+  try {
+    const formData = new FormData();
+
+    formData.append("user_id", userObj.user.id);
+    formData.append("restaurant_id", selectedRestaurant.id);
+
+    // 🔥 items MUST be STRING
+    formData.append(
+  "items",
+  JSON.stringify([
+    {
+      menu_id: selectedItem.id,   // ✅ REQUIRED BY BACKEND
+      quantity: quantity
+    }
+  ])
+);
+
+    // attachment optional – skip for now
+    for (let pair of formData.entries()) {
+  console.log(pair[0], pair[1]);
+}
+
+ const res= await axios.post(
+      "http://127.0.0.1:8000/orders/create",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      }
+    );
+
+    setOpenOrderDialog(false);
+    showNotify("Order placed successfully 🎉", "success");
+  const newOrderId = res.data.id || Math.floor(Math.random() * 1000000); // use backend returned id if available
+    setOrders(prev => [
+      ...prev,
+      {
+        id: newOrderId,
+        items: [
+          {
+            food_id: selectedItem.id,
+            name: selectedItem.name,
+            price: selectedItem.price,
+            quantity
+          }
+        ],
+        status: "Pending",
+        created_at: new Date().toISOString()
+      }
+    ]);
+    setActiveTab("My Orders");
+    setRefreshOrders(prev => prev + 1);
+  
+
+  } catch (err) {
+    console.error("Order placement failed:", err.response?.data || err);
+    showNotify("Order failed", "error");
+    setOpenOrderDialog(false);
+  }
+};
+
+useEffect(() => {
   if (!selectedRestaurant?.id) return;
+  console.log(" Fetching menu for restaurant:", selectedRestaurant.id);
   if (selectedRestaurant) {
     const fetchMenu = async () => {
       try {
@@ -248,19 +273,19 @@ React.useEffect(() => {
     // 2. Extract items from the categories (starters, main course, etc.)
     // We convert the object values into an array and grab the 'items' from each
     const allItems = Object.values(rawMenuData).flatMap(category => {
-      return Array.isArray(category.items) ? category.items : [];
+      return Array?.isArray(category.items) ? category.items : [];
     });
 
     console.log("Extracted Items:", allItems);
-    setMenuItems(allItems);
+    setMenuList(allItems);
       } catch (err) {
         console.error("Failed to load menu", err);
-        setMenuItems([]);
+        setMenuList([]);
       }
     };
     fetchMenu();
   }
-}, [selectedRestaurant,userObj]);
+}, [selectedRestaurant]);
 
   if (loading) {
     return (
@@ -279,30 +304,32 @@ if (selectedRestaurant) {
         {selectedRestaurant.name} Menu
       </Typography>
       <Grid container spacing={3}>
-        {Array.isArray(menuItems) && menuItems.length > 0 ? (
-        menuItems.map((item) => (
+        {Array?.isArray(menuList) && menuList.length > 0 ? (
+        menuList.map((item) => (
           <Grid item xs={12} sm={6} md={4} key={item.id}>
             <Paper sx={{ p: 2, borderRadius: 3 }}>
               {/* Display menu item data here */}
               <Box sx={{ height: 140, mb: 2, bgcolor: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
-        <img 
-          src={`http://127.0.0.1:8000/${item.menu_item_pic}`} 
-          alt={item.name} 
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={(e) => { e.target.style.display = 'none'; }} 
-        />
+        {item.menu_item_pic && (
+  <img
+    src={`http://127.0.0.1:8000/${item.menu_item_pic}`}
+    alt={item.name}
+    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+    onError={(e) => (e.target.style.display = 'none')}
+  />
+)}
       </Box>
               <Typography variant="h6">{item.name}</Typography>
               <Typography color="success.main" fontWeight="bold">₹{item.price}</Typography>
-            <Button 
-          variant="contained" 
-          color="success" 
-          size="small"
-          disabled={!item.is_available}
-          onClick={() => addToCart(item)}
-        >
-          {item.is_available ? "Add To Cart" : "Sold Out"}
-        </Button>
+           <Button
+  variant="contained"
+  color="success"
+  size="small"
+  onClick={() => handleopenOrderDialog(item)}
+>
+  Order Now
+</Button>
+
             </Paper>
           </Grid>
         ))
@@ -310,6 +337,46 @@ if (selectedRestaurant) {
     <Typography sx={{ p: 3 }}>No menu items available for this restaurant.</Typography>
   )}
       </Grid>
+      <Dialog
+        open={openOrderDialog}
+        onClose={() => setOpenOrderDialog(false)}
+      >
+        <DialogTitle>Order Summary</DialogTitle>
+
+        <DialogContent>
+          <Typography><b>{selectedItem?.name}</b></Typography>
+          <Typography>Price: ₹{selectedItem?.price}</Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+            <Button onClick={() => quantity > 1 && setQuantity(quantity - 1)}>
+              -
+            </Button>
+            <Typography>{quantity}</Typography>
+            <Button onClick={() => setQuantity(quantity + 1)}>
+              +
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="h6">
+            Total: ₹{(selectedItem?.price || 0) * quantity}
+          </Typography>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpenOrderDialog(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handlePlaceOrder}
+          >
+            Place Order
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
@@ -379,7 +446,10 @@ const filteredCount = restaurants.filter(r =>
       },
       cursor: 'pointer'
     }}
-    onClick={() => setSelectedRestaurant(rest)} // Changed from navigate to setSelectedRestaurant
+   onClick={() => {
+  console.log(" Restaurant selected:", rest);
+  setSelectedRestaurant(rest);
+}} // Changed from navigate to setSelectedRestaurant
   >
                 {/* RESTAURANT IMAGE */}
                 <Box sx={{ height: 160, bgcolor: '#e0e0e0' }}>
@@ -428,255 +498,65 @@ const filteredCount = restaurants.filter(r =>
         </Grid>
       )}
     </Box>
+     
   );
 };
-const CartView = ({ setActiveTab,cartItems, setCartItems,updateQuantity, userObj, selectedRestaurant, showNotify,  setNewOrderId }) => {
-
-const [openCheckout, setOpenCheckout] = useState(false);
-  const [orderPlacing, setOrderPlacing] = useState(false);
-  const removeFromCart = async (cartId) => {
-  try {
-    await axios.delete(
-      `http://127.0.0.1:8000/cart/remove/${cartId}`
-    );
-    showNotify("Item removed from cart", "success");
-    setCartItems(prev => prev.filter(i => i.cart_id !== cartId));
-  } catch (err) {
-    console.error("Remove failed", err);
-    showNotify("Failed to remove item", "error");
-  }
-};
-
-
-  const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-if (!selectedRestaurant) {
-  return (
-    <Box sx={{ textAlign: 'center', mt: 10 }}>
-      <Typography variant="h6">
-        Please select a restaurant first
-      </Typography>
-      <Button
-        sx={{ mt: 2 }}
-        variant="contained"
-        onClick={() => setActiveTab('Dashboard')}
-      >
-        Go to Restaurants
-      </Button>
-    </Box>
-  );
-}
-
-const handlePlaceOrder = async () => {
-  try {
-    setOrderPlacing(true);
-
-    const payload = {
-      user_id: userObj.user.id,
-      restaurant_id: selectedRestaurant.id,
-      items: cartItems.map(item => ({
-        food_id: item.id,
-        quantity: item.quantity
-      }))
-    };
-
-    const res = await axios.post(
-      'http://127.0.0.1:8000/orders/create',
-      payload
-    );
-
-    // ✅ clear cart state + storage
-    setCartItems([]);
-    await axios.delete(
-  `http://127.0.0.1:8000/cart/clear/${userObj.user.id}`
-);
-
-    // ✅ close dialog
-    setOpenCheckout(false);
-
-    // ✅ show snackbar
-    showNotify("Order placed successfully 🎉", "success");
-
-    // ✅ send order id to Orders tab
-    setNewOrderId(res.data.order_id);
-
-    // ✅ switch tab
-    setActiveTab('My Orders');
-
-  } catch (err) {
-    console.error("❌ Order failed:", err);
-    showNotify("Failed to place order", "error");
-  } finally {
-    setOrderPlacing(false);
-  }
-};
-
-
-  if (cartItems.length === 0) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '60vh',
-        textAlign: 'center' 
-      }}>
-       <ShoppingCart sx={{ fontSize: 120, color: '#e0e0e0', mb: 2, filter: 'drop-shadow(2px 4px 6px rgba(0,0,0,0.1))' }} />
-        <Typography variant="h5" color="text.secondary" gutterBottom>
-          Your cart is empty!
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Looks like you haven't added any delicious food yet.
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="success" 
-          size="large"
-          onClick={() => setActiveTab('Dashboard')} // Redirects user to browse
-          sx={{ borderRadius: '25px', px: 4 }}
-        >
-          Order Now
-        </Button>
-         <Dialog open={openCheckout} onClose={() => setOpenCheckout(false)}>
-      <DialogTitle sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
-        Confirm Your Order
-      </DialogTitle>
-      <DialogContent>
-        <DialogContentText>
-          You are about to place an order for ₹{calculateTotal()}.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setOpenCheckout(false)}>Cancel</Button>
-        <Button onClick={handlePlaceOrder} variant="contained" color="success">
-          Confirm Order
-        </Button>
-      </DialogActions>
-    </Dialog>
-  </Box>
-    );
-  }
-
-  return (
-    <Box>
-      <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#2e7d32' }}>
-        Your Shopping Cart
-      </Typography>
-      
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={8}>
-          {cartItems.map((item) => (
-            <Paper key={item.id} elevation={2} sx={{ p: 2, mb: 2, borderRadius: 2, display: 'flex', alignItems: 'center' }}>
-              <Avatar 
-                src={`http://127.0.0.1:8000/${item.menu_item_pic}`} 
-                variant="rounded" 
-                sx={{ width: 80, height: 80, mr: 2 }} 
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1.5 }}>
-  <Typography variant="body2" color="text.secondary">Quantity:</Typography>
-  
-  <Button 
-    size="small" 
-    variant="outlined" 
-    sx={{ minWidth: 28, height: 28, borderRadius: 1, p: 0 }}
-   onClick={() => {
-  if (item.quantity > 1) {
-    updateQuantity(item.cart_id, item.quantity - 1);
-  }
-}}
-
-  >
-    -
-  </Button>
-  
-  <Typography sx={{ fontWeight: 'bold', width: 20, textAlign: 'center' }}>
-    {item.quantity}
-  </Typography>
-  
-  <Button 
-    size="small" 
-    variant="outlined" 
-    sx={{ minWidth: 28, height: 28, borderRadius: 1, p: 0 }}
-   onClick={() => updateQuantity(item.cart_id, item.quantity + 1)}
-
-  >
-    +
-  </Button>
-</Box>
-              <Box sx={{ textAlign: 'right' }}>
-                <Typography variant="h6" color="success.main">
-                  ₹{item.price * item.quantity}
-                </Typography>
-                <Button 
-                  size="small" 
-                  color="error" 
-                  onClick={() => removeFromCart(item.cart_id)}
-                >
-                  Remove
-                </Button>
-              </Box>
-            </Paper>
-          ))}
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, borderRadius: 2, bgcolor: '#f1f8e9' }}>
-            <Typography variant="h6" gutterBottom>Order Summary</Typography>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography>Subtotal</Typography>
-              <Typography>₹{calculateTotal()}</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography>Delivery Fee</Typography>
-              <Typography color="success.main">FREE</Typography>
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-              <Typography variant="h6">Total</Typography>
-              <Typography variant="h6" color="success.main">₹{calculateTotal()}</Typography>
-            </Box>
-           <Button 
-  variant="contained" 
-  color="success" 
-  fullWidth 
-  size="large"
-  onClick={() => setOpenCheckout(true)} // Opens the dialog
->
-  Order Now
-</Button>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-};
-const UserOrdersView = ({ userObj, setActiveTab,showNotify, newOrderId, clearNewOrderId }) => {
-  const [orders, setOrders] = useState([]);
+const UserOrdersView = ({orders, setOrders, userObj,showNotify, refreshOrders }) => {
+ 
+  const [loading, setLoading] = useState(true);
   const fetchOrders = async () => {
-  console.log("📦 Fetching orders from backend...");
+   console.log("Fetching orders for user:", userObj.user.id);
   try {
     setLoading(true);
     const res = await axios.get(
       `http://127.0.0.1:8000/orders/user/${userObj.user.id}/orders`
     );
-    console.log("✅ Orders fetched:", res.data);
+    console.log("Orders API response:", res.data);
+
+
    const data = res.data;
 
 // 🔥 ALWAYS FORCE ARRAY
-const ordersArray = Array.isArray(data)
-  ? data
-  : Array.isArray(data.orders)
-    ? data.orders
-    : [];
+const ordersArray = Array.isArray(res.data.orders)
+  ? res.data.orders
+  : [];
 
-console.log("📦 Final orders array:", ordersArray);
+// normalize items so UI can render safely
+const patchedOrders = ordersArray.map(order => {
+  let items = [];
 
-setOrders(ordersArray);
+  // handle string items
+  if (typeof order.items === "string") {
+    try {
+      items = JSON.parse(order.items);
+    } catch {
+      items = [];
+    }
+  }
+  // handle array items
+  else if (Array.isArray(order.items)) {
+    items = order.items.map(item => ({
+      food_id: item.menu_id || item.food_id,
+      name: item.menu?.name || item.item_name || "Unknown",
+      price: item.price || 0,
+      quantity: item.quantity || 1
+    }));
+  }
+
+  return {
+    ...order,
+    items,
+     total_amount: Number(order.total_amount) || 0
+  };
+});
+
+setOrders(patchedOrders);
+
+
+console.log("Orders received:", patchedOrders);
+
   } catch (err) {
-    console.error("❌ Failed to fetch orders:", err);
+    console.error(" Failed to fetch orders:", err);
   } finally {
     setLoading(false);
   }
@@ -686,153 +566,69 @@ useEffect(() => {
   if (userObj?.user?.id) {
     fetchOrders();
   }
-}, [userObj?.user?.id]);
-
-
-  const [loading, setLoading] = useState(true);
-const [selectedOrder, setSelectedOrder] = useState(null);
-const [bill, setBill] = useState(null);
-const fetchOrderBill = async (orderId) => {
-  console.log("🧾 Fetching bill for order:", orderId);
-  try {
-    const res = await axios.get(
-      `http://127.0.0.1:8000/orders/${orderId}/bill`
-    );
-    console.log("✅ Bill data:", res.data);
-    setBill(res.data);
-    setOpenDetails(true);
-  } catch (err) {
-    console.error("❌ Failed to load bill:", err);
-  }
-};
-const [openDetails, setOpenDetails] = useState(false);
- const handleCancelOrder = async (orderId) => {
-  try {
-    await axios.put(
-      `http://127.0.0.1:8000/orders/${orderId}/status`,
-      { status: 'Cancelled' }
-    );
-    fetchOrders();
-  } catch (err) {
-    console.error("Cancel failed", err);
-  }
-};
-
-useEffect(() => {
-  if (newOrderId && orders.length > 0) {
-    const latest = orders.find(o => o.id === newOrderId);
-
-    if (latest) {
-      console.log("🆕 Opening newly placed order:", latest.id);
-      fetchOrderBill(latest.id);
-      clearNewOrderId();
-    }
-  }
-}, [newOrderId, orders]);
-useEffect(() => {
-  if (newOrderId) {
-    fetchOrders(); // 🔥 force reload orders
-  }
-}, [newOrderId]);
-
+}, [userObj?.user?.id, refreshOrders]);
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress color="success" /></Box>;
+
 
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#2e7d32' }}>My Order History</Typography>
       <Grid container spacing={3}>
-        {orders.map((order) => (
+        {orders?.map((order) => {
+          const orderTotal = order.total_amount ?? 0;
+
+    return (
           <Grid item xs={12} key={order.id}>
             <Paper elevation={2} sx={{ p: 3, borderRadius: 3, borderLeft: `6px solid ${order.status === 'Cancelled' ? '#d32f2f' : '#2e7d32'}` }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                  <Typography variant="h6">Order #{order.id}</Typography>
-                  <Typography variant="body2" color="text.secondary">{new Date(order.created_at).toLocaleDateString()}</Typography>
+           <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
+  <Box sx={{ width: 80, height: 80, borderRadius: 2, overflow: "hidden", bgcolor: "#eee" }}>
+    <img
+      src={
+        order.restaurant_pic
+          ? `http://127.0.0.1:8000/${order.restaurant_pic}`
+          : "/food-placeholder.png"
+      }
+      alt={order.restaurant_name}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      onError={(e) => (e.target.style.display = "none")}
+    />
+  </Box>
+
+  <Box>
+    <Typography variant="h6" fontWeight="bold">
+      {order.restaurant_name}
+    </Typography>
+
+<Typography variant="body2" color="text.secondary">
+  {new Date(order.date).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  })}
+</Typography>
+
                 </Box>
                 <Chip label={order.status} color={order.status === 'Cancelled' ? 'error' : 'success'} size="small" />
               </Box>
 
               {/* ITEM IMAGES SECTION */}
-              <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1, mb: 2 }}>
-                {order.items?.map((item, idx) => (
-                  <Box key={idx} sx={{ textAlign: 'center', minWidth: 80 }}>
-                    <Avatar 
-                      src={`http://127.0.0.1:8000/${item.menu_item_pic}`} 
-                      variant="rounded" 
-                      sx={{ width: 60, height: 60, mb: 0.5, border: '1px solid #eee' }} 
-                    />
-                    <Typography variant="caption" display="block" noWrap sx={{ width: 60 }}>{item.name}</Typography>
-                  </Box>
-                ))}
-              </Box>
+            
 
               <Divider sx={{ my: 1.5 }} />
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" color="success.main">Total: ₹{order.total_amount}</Typography>
-                <Box>
-                  {order.status !== 'Cancelled' && (
-                   <Button
-  variant="outlined"
-  color="error"
-  onClick={() => handleCancelOrder(order.id)}
-  disabled={order.status === 'Cancelled'}
->
-  Cancel Order
-</Button>
+                
+               <Typography variant="h6" color="success.main"> Total: ₹{Number(order.total_amount) || 0}</Typography>
 
-                  )}
-                <Button
-  size="small"
-  variant="contained"
-  color="inherit"
-  onClick={() => {
-    setSelectedOrder(order);
-    fetchOrderBill(order.id);
-  }}
->
-  Details
-</Button>
-
-                </Box>
               </Box>
             </Paper>
           </Grid>
-        ))}
+       )
+       }
+       )
+       }
       </Grid>
-      <Dialog
-  open={openDetails}
-  onClose={() => {
-    setOpenDetails(false);
-    setBill(null);
-  }}
-  fullWidth
->
-  <DialogTitle>Order Details</DialogTitle>
-
-  <DialogContent>
-    {!bill ? (
-      <CircularProgress />
-    ) : (
-      <>
-        <Typography>Order ID: {selectedOrder.id}</Typography>
-        <Typography>Status: {selectedOrder.status}</Typography>
-        <Typography sx={{ mt: 2, fontWeight: 'bold' }}>
-          Total: ₹{bill.total_amount}
-        </Typography>
-
-        <Divider sx={{ my: 2 }} />
-
-        {bill.items.map((item) => (
-          <Typography key={item.menu_item_id}>
-            {item.name} × {item.quantity}
-          </Typography>
-        ))}
-      </>
-    )}
-  </DialogContent>
-</Dialog>
 
     </Box>
 
@@ -855,14 +651,28 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   // useEffect to fetch and sync profile data on component mount
   useEffect(() => {
     const fetchLatestProfile = async () => {
-      console.log("ProfileView: Fetching latest profile data...");
+     console.log(" Fetching profile for user:", userObj.user.id);
+
       try {
         const res = await axios.get(`http://127.0.0.1:8000/users/`);
+
         console.log("ProfileView: Data received from server:", res.data);
-        
+        if (!Array.isArray(res.data) && !Array.isArray(res.data?.users)) {
+  console.warn("ProfileView: Users API did not return array");
+  return;
+}
+
         // Handle cases where data might be nested in res.data.user
        const targetId = userObj?.user?.id || userObj?.user?.user_id;
-      const latestData = res.data.find(u => (u.id || u.user_id) === targetId);
+      const usersArray = Array.isArray(res.data)
+  ? res.data
+  : Array.isArray(res.data.users)
+  ? res.data.users
+  : [];
+
+const latestData = usersArray.find(
+  u => (u.id || u.user_id) === targetId
+);
         // Update local state for form fields
        if (latestData) {
         console.log("ProfileView: Found User Data:", latestData);
@@ -895,6 +705,7 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   }, [userObj]);
 
   const handleFileChange = (e) => {
+     console.log(" Selected profile image:", e.target.files[0]);
     const file = e.target.files[0];
     if (file) {
       console.log("ProfileView: Image selected:", file.name);
@@ -906,6 +717,8 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const handleUpdateProfile = async () => {
     console.log("ProfileView: Initiating profile update...");
     try {
+      console.log(" Updating profile with:", editData);
+
       const formData = new FormData();
       formData.append('name', editData.name);
       formData.append('mobile', editData.mobile); // Sending as 'mobile' for backend
@@ -927,8 +740,22 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
       console.log("ProfileView: Update response:", response.data);
 
       alert("Profile updated successfully!");
+      console.log("✅ Profile updated successfully");
+const updatedUser = {
+  ...userObj,
+  user: {
+    ...userObj.user,
+    ...response.data   // includes profile_picture path
+  }
+};
+
+localStorage.setItem("userObj", JSON.stringify(updatedUser));
+
       setIsEditing(false);
       setPreviewUrl(null);
+      setSelectedFile(null);
+      window.dispatchEvent(new Event("storage"));
+
       
     } catch (err) {
       console.error("ProfileView: Update error:", err.response);
@@ -937,6 +764,8 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   };
 
   const handleDeleteAccount = async () => {
+    console.log(" Deleting user account:", userObj.user.id);
+
     const confirmDelete = window.confirm("Are you sure? This will permanently delete your user.");
     if (confirmDelete) {
       try {
@@ -963,16 +792,21 @@ const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
             <Avatar 
-             src={previewUrl || (userObj?.user?.profile_picture 
-  ? `http://127.0.0.1:8000/${userObj.user.profile_picture}` 
-  : "")}
+           src={
+  previewUrl
+    ? previewUrl
+    : userObj?.user?.profile_picture
+    ? `http://127.0.0.1:8000/${userObj.user.profile_picture}`
+    : undefined
+}
+
               sx={{ width: 120, height: 120, bgcolor: '#1a237e', fontSize: '3rem', border: '4px solid #fff', boxShadow: 2 }}
             >
              {!previewUrl && !userObj?.user?.profile_picture && (userObj?.user?.name?.charAt(0) || "U")}
             </Avatar>
             {isEditing && (
               <Box sx={{ mt: 1, textAlign: 'center' }}>
-                <input accept="menu_item_pic/*" style={{ display: 'none' }} id="icon-button-file" type="file" onChange={handleFileChange} />
+                <input accept="image/*" style={{ display: 'none' }} id="icon-button-file" type="file" onChange={handleFileChange} />
                 <label htmlFor="icon-button-file">
                   <Button variant="contained" size="small" component="span" sx={{ fontSize: '10px', p: 0.5, bgcolor: '#1a237e' }}>
                     Upload New

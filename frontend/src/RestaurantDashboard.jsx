@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, CssBaseline,Avatar, FormControlLabel, TextField, Switch, Paper, AppBar, Toolbar, Typography, Drawer, List, ListItem,
-  ListItemButton, ListItemIcon, Button, ListItemText,MenuItem, Divider, Container, Grid, Chip, CircularProgress
+  ListItemButton,Dialog,DialogContent,DialogActions,DialogTitle,
+  
+  ListItemIcon, Button, ListItemText,MenuItem, Divider, Container, Grid, Chip, CircularProgress
 } from '@mui/material';
 import {
   Dashboard as DashIcon,Edit as EditIcon,Delete as DeleteIcon, AddBox, AccountCircle,ShoppingCart, ExitToApp, Menu as MenuIcon
@@ -10,7 +12,14 @@ import {
 import axios from 'axios';
 
 const drawerWidth = 240;
-
+const API_BASE_URL = "http://127.0.0.1:8000";
+const CATEGORY_MAP = {
+  "tiffins": 2, // Adjust these IDs to match your specific database logs
+  "starters": 1,
+  "main course": 3,
+  "soft drinks": 4,
+  "deserts": 5
+};
 const RestaurantDashboard = () => {
   console.log("Rendering RestaurantDashboard component");
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -18,6 +27,7 @@ const RestaurantDashboard = () => {
   
   const [userObj,setUserObj] = useState(() => {
     const saved = localStorage.getItem('userObj');
+     console.log("Initial userObj from localStorage:", saved);
     if (!saved) return null;
     try {
       const parsed = JSON.parse(saved);
@@ -134,15 +144,7 @@ useEffect(() => {
     </Box>
   );
 };
-// --- SHARED CONSTANTS ---
-const API_BASE_URL = "http://127.0.0.1:8000";
-const CATEGORY_MAP = {
-  "tiffins": 2, // Adjust these IDs to match your specific database logs
-  "starters": 1,
-  "main course": 3,
-  "soft drinks": 4,
-  "deserts": 5
-};
+
 
 // --- DASHBOARD HOME COMPONENT ---
 export const DashboardHome = ({ userObj }) => {
@@ -152,20 +154,23 @@ export const DashboardHome = ({ userObj }) => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [actionLoading, setActionLoading] = useState(false);
 
-  const categories = ["All","starters","tiffins",  "main course", "soft drinks", "deserts"];
+ const categories = ["All","starters","tiffins",  "main course", "soft drinks", "deserts"];
 
   const getImageUrl = (path) => path ? `${API_BASE_URL}/${path}` : null;
 
   const handleCompleteOrder = async (orderId) => {
+    console.log("DashboardHome: Completing order ID:", orderId);
     setActionLoading(true);
     try {
       await axios.put(`${API_BASE_URL}/orders/${userObj.restaurant.id}/status`, {
         status: 'Completed'
       });
+       console.log("DashboardHome: Order completed successfully");
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'Completed' } : o));
       alert("Order marked as completed!");
     } catch (err) {
       alert("Failed to update status");
+      console.error("DashboardHome: Failed to update status", err);
     } finally {
       setActionLoading(false);
     }
@@ -176,7 +181,7 @@ export const DashboardHome = ({ userObj }) => {
       setLoading(false);
       return;
     }
-
+console.log("DashboardHome: fetching menu & orders for restaurant ID:", userObj?.restaurant?.id);
     const fetchData = async () => {
       try {
         const [menuRes, ordersRes] = await Promise.all([
@@ -186,7 +191,7 @@ export const DashboardHome = ({ userObj }) => {
 
         const menuData = menuRes.data.menu;
         let allItems = [];
-        
+         console.log("DashboardHome: menu data fetched", menuRes.data);
         if (menuData && typeof menuData === 'object' && !Array.isArray(menuData)) {
           Object.values(menuData).forEach(category => {
             if (category.items && Array.isArray(category.items)) {
@@ -198,7 +203,19 @@ export const DashboardHome = ({ userObj }) => {
         }
 
         setMenuItems(allItems);
-        setOrders(ordersRes.data.orders || []);
+        console.log("MenuView: fetched items", allItems);
+        const ordersArray = ordersRes.data.orders || [];
+        console.log("DashboardHome: orders data fetched", ordersRes.data);
+      // Optional: map totalAmount if API returns total_amount
+     const formattedOrders = ordersArray.map(o => ({
+  ...o,
+  totalAmount: o.totalAmount ?? o.total_amount ?? 0,
+  userName: o.user_name ?? o.userName ?? "Unknown",
+  userId: o.user_id ?? o.userId ?? null
+}));
+
+      setOrders(formattedOrders);
+
       } catch (err) {
         console.error("Fetch error", err);
       } finally {
@@ -206,10 +223,10 @@ export const DashboardHome = ({ userObj }) => {
       }
     };
     fetchData();
+    
   }, [userObj]);
 
-  const filteredItems = selectedCategory === "All" 
-  ? menuItems 
+  const filteredItems = selectedCategory === "All" ? menuItems 
   : menuItems.filter(item => {
       // Ensure the category name from your state exactly matches the CATEGORY_MAP key
       const targetId = CATEGORY_MAP[selectedCategory.toLowerCase()];
@@ -233,9 +250,17 @@ export const DashboardHome = ({ userObj }) => {
                   <Typography variant="h6">Order #{order.id}</Typography>
                   <Chip label={order.status} size="small" color="error" variant="filled" sx={{ fontWeight: 'bold' }} />
                 </Box>
+                <Box sx={{ mb: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#1a237e' }}>
+          {order.userName}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Customer ID: {order.userId}
+        </Typography>
+      </Box>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ minHeight: '80px' }}>
-                  {order.items.map((item, idx) => (
+                  {order.items?.map((item, idx) => (
                     <Typography key={idx} variant="body2">• {item.quantity}x {item.name}</Typography>
                   ))}
                 </Box>
@@ -259,18 +284,7 @@ export const DashboardHome = ({ userObj }) => {
       </Grid>
 
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>Menu Overview</Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 4, flexWrap: 'wrap' }}>
-        {categories.map((cat) => (
-          <Button
-            key={cat}
-            variant={selectedCategory === cat ? "contained" : "outlined"}
-            onClick={() => setSelectedCategory(cat)}
-            sx={{ borderRadius: '20px', textTransform: 'capitalize', px: 3 }}
-          >
-            {cat}
-          </Button>
-        ))}
-      </Box>
+      
 
       <Grid container spacing={2}>
         {filteredItems.map((item) => (
@@ -303,14 +317,22 @@ export const MenuView = ({ userObj }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // For Edit modal
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [editForm, setEditForm] = useState({ name: "", price: "", category_id: "", is_available: true });
+
   useEffect(() => {
     const fetchMenu = async () => {
-      
-      if (!userObj?.restaurant?.id) { setLoading(false); return; }
+      console.log("MenuView: Fetching menu...");
+      if (!userObj?.restaurant?.id) { 
+        setLoading(false); 
+        return; 
+      }
       try {
         const res = await axios.get(`${API_BASE_URL}/menu/${userObj.restaurant.id}`);
+        console.log("MenuView: Fetched data", res.data);
         const menuData = res.data?.menu;
-        console.log("Items fetched :", res);
         let allItems = [];
         if (menuData && typeof menuData === 'object') {
           Object.values(menuData).forEach(cat => {
@@ -319,6 +341,7 @@ export const MenuView = ({ userObj }) => {
         }
         setItems(allItems);
       } catch (err) {
+        console.error("MenuView: Fetch error", err);
         setItems([]);
       } finally {
         setLoading(false);
@@ -327,17 +350,80 @@ export const MenuView = ({ userObj }) => {
     fetchMenu();
   }, [userObj]);
 
+  // --- DELETE ITEM ---
+  const handleRemove = async (itemId) => {
+    console.log("MenuView: Deleting item ID:", itemId);
+    if (!window.confirm("Are you sure you want to remove this item?")) return;
+
+    console.log("MenuView: Removing item", itemId);
+    try {
+      await axios.delete(`${API_BASE_URL}/menu/${userObj.restaurant.id}`);
+      setItems(prev => prev.filter(item => item.item_id !== itemId));
+      console.log("MenuView: Item removed successfully");
+      alert("Item removed successfully!");
+    } catch (err) {
+      console.error("MenuView: Failed to remove item", err);
+      alert("Failed to remove item.");
+    }
+  };
+
+  // --- OPEN EDIT MODAL ---
+  const openEditModal = (item) => {
+    console.log("MenuView: Opening edit modal for", item);
+    setEditItem(item);
+    setEditForm({
+      name: item.name,
+      price: item.price,
+      category_id: item.category_id,
+      is_available: item.is_available
+    });
+    setEditOpen(true);
+  };
+
+  // --- HANDLE EDIT SUBMIT ---
+  const handleEditSubmit = async () => {
+    console.log("MenuView: Editing item:", editItem, "with data:", editForm); 
+    if (!editItem) return;
+    console.log("MenuView: Submitting edit for", editItem.item_id, editForm);
+
+    try {
+      await axios.put(`${API_BASE_URL}/menu/${userObj.restaurant.id}/update`, {
+        item_name: editForm.name,
+        price: parseFloat(editForm.price),
+        category_id: editForm.category_id,
+        is_available: editForm.is_available
+      });
+      setItems(prev => prev.map(it => it.item_id === editItem.item_id ? { ...it, ...editForm } : it));
+      console.log("MenuView: Item updated successfully");
+      alert("Item updated successfully!");
+      setEditOpen(false);
+      setEditItem(null);
+    } catch (err) {
+      console.error("MenuView: Failed to update item", err);
+      alert("Failed to update item.");
+    }
+  };
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
 
   return (
     <Box>
       <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#1a237e' }}>Full Restaurant Menu</Typography>
+
       <Grid container spacing={3}>
+        {items.length === 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography>No menu items found.</Typography>
+            </Paper>
+          </Grid>
+        )}
+
         {items.map((item) => (
           <Grid item xs={12} sm={6} md={4} key={item.item_id}>
             <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ height: 140, bgcolor: '#e0e0e0' }}>
-                {item.menu_item_pic && <img src={`${API_BASE_URL}/${item.menu_item_pic}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                {item.menu_item_pic ? <img src={`${API_BASE_URL}/${item.menu_item_pic}`} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <MenuIcon sx={{ fontSize: 60, color: '#bdbdbd', mt: 3 }} />}
               </Box>
               <Box sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -347,20 +433,38 @@ export const MenuView = ({ userObj }) => {
                 <Typography variant="body2" color="text.secondary">Category ID: {item.category_id}</Typography>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button size="small" startIcon={<EditIcon />} color="inherit">Edit</Button>
-                  <Button size="small" startIcon={<DeleteIcon />} color="error">Remove</Button>
+                  <Button size="small" startIcon={<EditIcon />} color="inherit" onClick={() => openEditModal(item)}>Edit</Button>
+                  <Button size="small" startIcon={<DeleteIcon />} color="error" onClick={() => handleRemove(item.item_id)}>Remove</Button>
                 </Box>
               </Box>
             </Paper>
           </Grid>
         ))}
       </Grid>
+
+      {/* --- EDIT MODAL --- */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
+        <DialogTitle>Edit Menu Item</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <TextField label="Item Name" value={editForm.name} onChange={(e) => setEditForm({...editForm, name: e.target.value})} fullWidth />
+          <TextField label="Price (₹)" type="number" value={editForm.price} onChange={(e) => setEditForm({...editForm, price: e.target.value})} fullWidth />
+          <TextField label="Category ID" type="number" value={editForm.category_id} onChange={(e) => setEditForm({...editForm, category_id: e.target.value})} fullWidth />
+          <TextField label="Available (true/false)" value={editForm.is_available} onChange={(e) => setEditForm({...editForm, is_available: e.target.value === "true"})} fullWidth />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="success" onClick={handleEditSubmit}>Save</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
+
 // --- ADD ITEM FORM COMPONENT ---
 export const AddItemForm = ({ userObj }) => {
+  const [selectedFileName, setSelectedFileName] = useState("");
+
   const [formData, setFormData] = useState({
     name: '', price: '', menu_item_pic: '', category_id: '', is_available: true
   });
@@ -373,27 +477,52 @@ export const AddItemForm = ({ userObj }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!userObj?.restaurant?.id) return alert("Restaurant ID not found");
+  e.preventDefault();
+console.log("AddItemForm: Submitting new item:", formData);
+  if (!userObj?.restaurant?.id) {
+    alert("Restaurant ID not found");
+    return;
+  }
 
-    try {
-      // FIXING PAYLOAD FOR BACKEND SCHEMA (422 ERROR FIX)
-      const payload = {
-        name: formData.name,       // Backend expects 'name'
-        price: parseFloat(formData.price),   // Ensure float/number
-        menu_item_pic: formData.menu_item_pic,
-        category_id: CATEGORY_MAP[formData.category_id.toLowerCase()], // Must be INT ID
-        is_available: Boolean(formData.is_available)
-      };
-console.log("Submitting Payload:", payload);
-      await axios.post(`${API_BASE_URL}/menu/${userObj.restaurant.id}/add`, payload);
-      alert("Item added successfully!");
-      setFormData({ name: '', price: '', menu_item_pic: '', category_id: '', is_available: true });
-    } catch (err) {
-      console.error("Submission error:", err.response?.data);
-      alert(`Error: ${JSON.stringify(err.response?.data?.detail)}`);
+  const categoryId = CATEGORY_MAP[formData.category_id?.toLowerCase()];
+  if (!categoryId) {
+    alert("Invalid category selected");
+    return;
+  }
+
+  try {
+    const formDataObj = new FormData();
+    formDataObj.append("item_name", formData.name); // 🔥 FIXED
+    formDataObj.append("price", parseFloat(formData.price));
+    formDataObj.append("category_id", categoryId);
+    formDataObj.append("is_available", formData.is_available);
+
+    if (formData.menu_item_pic instanceof File) {
+      formDataObj.append("menu_item_pic", formData.menu_item_pic);
     }
-  };
+
+    await axios.post(
+      `${API_BASE_URL}/menu/${userObj.restaurant.id}/add`,
+      formDataObj,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    alert("Item added successfully!");
+    console.log("AddItemForm: Item added successfully!");
+    setFormData({
+      name: '',
+      price: '',
+      menu_item_pic: '',
+      category_id: '',
+      is_available: true
+    });
+
+  } catch (err) {
+    console.error("Submission error:", err.response?.data);
+    alert(JSON.stringify(err.response?.data?.detail));
+  }
+};
+
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
@@ -406,7 +535,7 @@ console.log("Submitting Payload:", payload);
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField select fullWidth label="Category" name="category_id" value={formData.category_id} onChange={handleChange} required>
-                {categories.map((cat) => (
+                {categories?.map((cat) => (
                   <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                 ))}
               </TextField>
@@ -414,9 +543,33 @@ console.log("Submitting Payload:", payload);
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} required />
             </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth label="Image URL" name="menu_item_pic" placeholder="https://example.com/food.jpg" value={formData.menu_item_pic} onChange={handleChange} />
-            </Grid>
+            <Button variant="outlined" component="label" fullWidth>
+  Upload Item Image
+  <input
+    hidden
+    type="file"
+    accept="image/*"
+   onChange={(e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setFormData({ ...formData, menu_item_pic: file });
+    setSelectedFileName(file.name); // 👈 store file name
+   console.log("AddItemForm: File selected:", file.name);
+  }
+}}
+
+  />
+</Button>
+{selectedFileName && (
+  <Typography
+    variant="caption"
+    color="text.secondary"
+    sx={{ mt: 1, display: 'block' }}
+  >
+    Selected file: {selectedFileName}
+  </Typography>
+)}
+
             <Grid item xs={12}>
               <FormControlLabel
                 control={<Switch checked={formData.is_available} onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })} color="primary" />}
@@ -456,7 +609,12 @@ const handleCompleteOrder = async (orderId) => {
       try {
         const res = await axios.get(`http://127.0.0.1:8000/orders/restaurant/${userObj.restaurant.id}`);
       const ordersArray = res.data.orders || []; 
-    setOrders(ordersArray);
+      const formattedOrders = ordersArray.map(o => ({
+        ...o,
+        totalAmount: o.totalAmount ?? o.total_amount ?? 0
+      }));
+      setOrders(formattedOrders);
+      console.log("OrdersView: Orders fetched", formattedOrders);
       } catch (err) {
         console.error("OrdersView: Fetch Error", err);
       setOrders([]);
@@ -486,32 +644,53 @@ const handleCompleteOrder = async (orderId) => {
         </Paper>
       ) : (
         <Grid container spacing={2} sx={{ mb: 6 }}>
-          {activeOrders.map((order) => (
-            <Grid item xs={12} key={order.id}>
-              <Paper elevation={2} sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '6px solid #d32f2f' }}>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight="bold">Order #{order.id}</Typography>
-                  {order.items.map((item, i) => (
-                    <Typography key={i} variant="body2">{item.quantity}x {item.name}</Typography>
-                  ))}
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Chip label={order.status} color="error" sx={{ mb: 1 }} />
-                  <Typography variant="h6">₹{order.totalAmount}</Typography>
-                  <Button 
-    size="small" 
-    variant="contained" 
-    color="success" 
-    sx={{ mt: 1 }}
-    disabled={actionLoading}
-    onClick={() => handleCompleteOrder(order.id)} // ADD THIS
-  >
-   {actionLoading ? "Processing..." : "Mark Completed"}
-  </Button>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
+       {activeOrders.map((order) => (
+  <Grid item xs={12} key={order.id}>
+    <Paper elevation={2} sx={{ p: 2, borderLeft: '6px solid #d32f2f' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            Order #{order.id}
+          </Typography>
+          {/* DISPLAY USERNAME AND ID HERE */}
+          <Typography variant="subtitle1" sx={{ color: '#1a237e', fontWeight: '500' }}>
+            Customer: {order.user_name || "Guest"} (User ID: {order.user_id})
+          </Typography>
+          
+          <Box sx={{ mt: 2 }}>
+            {order.items?.map((item, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                <Avatar 
+                  src={`${API_BASE_URL}/${item.menu_item_pic}`} 
+                  variant="rounded" 
+                  sx={{ width: 40, height: 40 }}
+                />
+                <Typography variant="body2">
+                  {item.quantity}x <strong>{item.name}</strong>
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+
+        <Box sx={{ textAlign: 'right' }}>
+          <Chip label={order.status} color="error" sx={{ mb: 1 }} />
+          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>₹{order.totalAmount}</Typography>
+          <Button 
+            size="small" 
+            variant="contained" 
+            color="success" 
+            sx={{ mt: 2 }}
+            disabled={actionLoading}
+            onClick={() => handleCompleteOrder(order.id)}
+          >
+            {actionLoading ? "Processing..." : "Mark Completed"}
+          </Button>
+        </Box>
+      </Box>
+    </Paper>
+  </Grid>
+))}
         </Grid>
       )}
 
@@ -528,6 +707,9 @@ const handleCompleteOrder = async (orderId) => {
                   <Typography variant="body1" fontWeight="bold">Order #{order.id}</Typography>
                   <Typography variant="caption" color="text.secondary">Items: {order.items.length}</Typography>
                 </Box>
+                <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold', mb: 1 }}>
+    Customer: {order.userName} (ID: {order.userId})
+  </Typography>
                 <Box sx={{ textAlign: 'right' }}>
                   <Typography variant="body1" fontWeight="bold">₹{order.totalAmount}</Typography>
                   <Typography variant="caption" color="success.main">Finished</Typography>
@@ -604,7 +786,7 @@ const ProfileView = ({ userObj }) => {
   };
 
   const handleUpdateProfile = async () => {
-    console.log("ProfileView: Initiating profile update...");
+   console.log("ProfileView: Updating profile with data:", editData, "Selected file:", selectedFile);
     try {
       const formData = new FormData();
       formData.append('name', editData.name);
@@ -638,6 +820,7 @@ const ProfileView = ({ userObj }) => {
   };
 
   const handleDeleteAccount = async () => {
+    console.log("ProfileView: Attempting to delete account for restaurant ID:", userObj?.restaurant?.id);
     const confirmDelete = window.confirm("Are you sure? This will permanently delete your restaurant.");
     if (confirmDelete) {
       try {
