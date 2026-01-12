@@ -13,7 +13,6 @@ def create_order(session, user_id, restaurant_id, items, payment_image=None):
         total_amount=0,
         payment_image=payment_image
     )
-
     session.add(order)
     session.flush()  # ensures order.id exists
 

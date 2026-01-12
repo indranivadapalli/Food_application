@@ -117,7 +117,6 @@ class OrderItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     order_id: int = Field(foreign_key="orders.id")
     menu_id: int = Field(foreign_key="menus.id")
-
     quantity: int
     price: float
 

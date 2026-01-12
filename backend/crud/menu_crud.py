@@ -4,7 +4,6 @@ from database.models import Menu,Category, Restaurant
 from datetime import datetime
 from utils import get_current_ist_time
 from sqlalchemy.orm import selectinload, joinedload
-
 def create_menu_item(session: Session, data: dict) -> Menu:
     menu = Menu(
         name=data["name"],

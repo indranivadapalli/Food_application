@@ -214,7 +214,6 @@ def get_single_category(
 
         if not category:
             return {"status": "error", "message": "Category not found"}
-
         return {
             "status": "success",
             "category": {
@@ -225,7 +224,6 @@ def get_single_category(
                 "restaurant_id": category.restaurant_id
             }
         }
-
     except Exception as e:
         logger.error("Fetch category failed: %s", str(e), exc_info=True)
         return {"status": "error", "message": "Internal error"}

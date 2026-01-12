@@ -40,7 +40,6 @@ def register_restaurant(
             pic_path = f"{RESTAURANT_UPLOAD_DIR}/{email}_{restaurant_pic.filename}"
             with open(pic_path, "wb") as f:
                 f.write(restaurant_pic.file.read())
-
         restaurant = create_restaurant(
             session=session,
             data={

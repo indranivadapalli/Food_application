@@ -12,7 +12,6 @@ def check_delivery_partner_exists(session: Session, email: str) -> bool:
     except Exception as e:
         print(f"Error checking delivery partner: {e}")
         return False
-
 def create_delivery_partner(session: Session, data: dict) -> DeliveryPartner:
     """Create a new delivery partner"""
     partner = DeliveryPartner(

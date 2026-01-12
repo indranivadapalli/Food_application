@@ -31,7 +31,6 @@ logger = get_logger("OrdersAPI")
 
 UPLOAD_DIRECTORY = "uploads/orders"
 os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
-
 @router.post("/create")
 def create_order(
     user_id: int = Form(...),

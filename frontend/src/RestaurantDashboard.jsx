@@ -737,7 +737,7 @@ const ProfileView = ({ userObj }) => {
     newPassword: ''
   });
 
-  // useEffect to fetch and sync profile data on component mount
+  // useEffect to fetch and sync profile data on component
   useEffect(() => {
     const fetchLatestProfile = async () => {
       console.log("ProfileView: Fetching latest profile data...");
