@@ -70,22 +70,73 @@ def create_order(
         return {"status": "error", "message": "Internal server error"}
 
 @router.get("/user/{user_id}/orders")
-def get_user_orders(user_id: int, session: Session = Depends(get_session)):
-    """Requirement: Select order details for a specific user (History)"""
-    orders = db_get_user_orders(session, user_id)
-    
-    # Mapping to the format suggested in your requirements image
-    result = []
+def get_user_orders(
+    user_id: int,
+    session: Session = Depends(get_session)
+):
+    BASE_URL = "http://127.0.0.1:8000"
+
+    stmt = (
+        select(Order)
+        .where(Order.user_id == user_id)
+        .options(
+            selectinload(Order.restaurant),
+            selectinload(Order.items).selectinload(OrderItem.menu)
+        )
+        .order_by(Order.created_at.desc())
+    )
+
+    orders = session.exec(stmt).all()
+
+    response = []
     for o in orders:
-        result.append({
+
+    # ✅ ORDER IMAGE
+        order_image = None
+        if o.items and o.items[0].menu and o.items[0].menu.menu_item_pic:
+            order_image = f"{BASE_URL}/{o.items[0].menu.menu_item_pic}"
+
+        response.append({
             "order_id": o.id,
-            "restaurant_name": o.restaurant.name,
-            "location": o.restaurant.address,
             "status": o.status,
             "total_amount": o.total_amount,
-            "date": o.created_at
+
+            "created_at": o.created_at.isoformat(),
+            "date": o.created_at.isoformat(),
+
+            "order_image": order_image,
+
+            "restaurant": {
+                "id": o.restaurant.id,
+                "name": o.restaurant.name,
+                "address": o.restaurant.address
+            },
+
+            "items": [
+                {
+                    "menu_id": item.menu.id,
+                    "menu_item_name": item.menu.name,
+                    "quantity": item.quantity,
+                    "menu_item_pic": (
+                        f"{BASE_URL}/{item.menu.menu_item_pic}"
+                        if item.menu.menu_item_pic
+                        else None
+                    )
+                }
+                for item in o.items
+            ]
         })
-    return {"status": "success", "orders": result}
+
+
+        
+
+
+
+    return {
+        "status": "success",
+        "orders": response
+    }
+
 
 @router.get("/{order_id}/bill")
 def get_bill(order_id: int, session: Session = Depends(get_session)):
@@ -102,26 +153,64 @@ def get_bill(order_id: int, session: Session = Depends(get_session)):
     }
 
 @router.get("/restaurant/{restaurant_id}")
-def get_restaurant_orders(restaurant_id: int, session: Session = Depends(get_session)):
-    from sqlmodel import select
-    from sqlalchemy.orm import selectinload
-    
-    # We use selectinload(Order.user) so the frontend gets the User's name
-    stmt = select(Order).where(Order.restaurant_id == restaurant_id).options(selectinload(Order.user)).order_by(Order.created_at.desc())
+def get_restaurant_orders(
+    restaurant_id: int,
+    session: Session = Depends(get_session)
+):
+    BASE_URL = "http://127.0.0.1:8000"
+
+    stmt = (
+        select(Order)
+        .where(Order.restaurant_id == restaurant_id)
+        .options(
+            selectinload(Order.user),
+            selectinload(Order.items).selectinload(OrderItem.menu)
+        )
+        .order_by(Order.created_at.desc())
+    )
+
     orders = session.exec(stmt).all()
-    
+
     formatted_orders = []
     for o in orders:
+
+    # ✅ ORDER IMAGE
+        order_image = None
+        if o.items and o.items[0].menu and o.items[0].menu.menu_item_pic:
+            order_image = f"{BASE_URL}/{o.items[0].menu.menu_item_pic}"
+
         formatted_orders.append({
-            "id": o.id,
-            "total_amount": o.total_amount,
+            "order_id": o.id,
             "status": o.status,
-            "user_name": o.user.name if o.user else "Guest", # This fixed the frontend display
-            "user_id": o.user_id,
-            "created_at": o.created_at.isoformat() if o.created_at else None
+            "total_amount": o.total_amount,
+
+            "created_at": o.created_at.isoformat(),
+            "date": o.created_at.isoformat(),   # ✅ ADDED
+
+            "order_image": order_image,         # ✅ ADDED
+
+            "user": {
+                "id": o.user_id,
+                "name": o.user.name if o.user else "Guest"
+            },
+
+            "items": [
+                {
+                    "menu_id": item.menu.id,
+                    "menu_item_name": item.menu.name,
+                    "quantity": item.quantity,
+                    "menu_item_pic": (
+                        f"{BASE_URL}/{item.menu.menu_item_pic}"
+                        if item.menu.menu_item_pic
+                        else None
+                    )
+                }
+                for item in o.items
+            ]
         })
-    
+
     return {"status": "success", "orders": formatted_orders}
+
 
 @router.put("/{order_id}/status")
 def update_status(order_id: int, status: str, session: Session = Depends(get_session)):
