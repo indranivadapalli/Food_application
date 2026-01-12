@@ -1,48 +1,49 @@
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload, joinedload
 from typing import List, Optional
-from database.models import Order, OrderItem, Menu, User, Restaurant
+from database.models import Order, OrderItem, Menu, User, Restaurant,OrderStatus
 
-def create_order(
-    session: Session,
-    user_id: int,
-    restaurant_id: int,
-    items: List[dict],
-    payment_image: Optional[str] = None
-) -> Optional[Order]:  
-
-    if not session.get(User, user_id) or not session.get(Restaurant, restaurant_id):
-        return None
+def create_order(session, user_id, restaurant_id, items, payment_image=None):
+    total_amount = 0
 
     order = Order(
         user_id=user_id,
         restaurant_id=restaurant_id,
-        status="PLACED",
+        status=OrderStatus.PLACED,
         total_amount=0,
         payment_image=payment_image
     )
-    session.add(order)
-    session.flush()
 
-    total = 0.0
+    session.add(order)
+    session.flush()  # ensures order.id exists
+
     for item in items:
         menu = session.get(Menu, item["menu_id"])
-        if not menu or not menu.is_available:
+        if not menu:
             session.rollback()
             return None
 
-        total += menu.price * item["quantity"]
+        if not menu.is_available:
+            session.rollback()
+            return None
 
-        session.add(OrderItem(
+        quantity = int(item["quantity"])
+        item_total = menu.price * quantity
+        total_amount += item_total
+
+        order_item = OrderItem(
             order_id=order.id,
             menu_id=menu.id,
-            quantity=item["quantity"],
+            quantity=quantity,
             price=menu.price
-        ))
+        )
+        session.add(order_item)
+
+    order.total_amount = total_amount
+
     session.commit()
     session.refresh(order)
     return order
-
 
 def get_order_with_details(session: Session, order_id: int):
     stmt = (
