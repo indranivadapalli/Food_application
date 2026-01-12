@@ -584,12 +584,8 @@ useEffect(() => {
            <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}>
   <Box sx={{ width: 80, height: 80, borderRadius: 2, overflow: "hidden", bgcolor: "#eee" }}>
     <img
-      src={
-        order.restaurant_pic
-          ? `http://127.0.0.1:8000/${order.restaurant_pic}`
-          : "/food-placeholder.png"
-      }
-      alt={order.restaurant_name}
+      src={order.order_image || "/food-placeholder.png"}
+      alt={order.restaurant?.name || "Order"}
       style={{ width: "100%", height: "100%", objectFit: "cover" }}
       onError={(e) => (e.target.style.display = "none")}
     />
@@ -597,11 +593,12 @@ useEffect(() => {
 
   <Box>
     <Typography variant="h6" fontWeight="bold">
-      {order.restaurant_name}
+     {order.restaurant?.name}
+
     </Typography>
 
 <Typography variant="body2" color="text.secondary">
-  {new Date(order.date).toLocaleDateString("en-IN", {
+  {new Date(order.created_at).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric"
