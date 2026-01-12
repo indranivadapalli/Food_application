@@ -3,6 +3,7 @@ from typing import Optional, List
 from datetime import datetime, time
 from sqlmodel import SQLModel, Field, Relationship
 
+
 # 1. Define Enum for status validation
 class OrderStatus(str, Enum):
     PLACED = "PLACED"
@@ -74,7 +75,8 @@ class DeliveryPartner(SQLModel, table=True):
 # --- MENU TABLE ---
 class Menu(SQLModel, table=True):
     __tablename__ = "menus"
-    __table_args__ = {"extend_existing": True} # <--- Add to ALL classes
+    __table_args__ = {"extend_existing": True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     price: float
@@ -82,6 +84,7 @@ class Menu(SQLModel, table=True):
     menu_item_pic: Optional[str] = None
     restaurant_id: int = Field(foreign_key="restaurants.id")
     category_id: int = Field(foreign_key="categories.id")
+
     category: "Category" = Relationship(back_populates="menus")
     restaurant: Restaurant = Relationship(back_populates="menus")
     order_items: List["OrderItem"] = Relationship(back_populates="menu")
@@ -89,16 +92,18 @@ class Menu(SQLModel, table=True):
 # --- ORDER TABLE ---
 class Order(SQLModel, table=True):
     __tablename__ = "orders"
-    __table_args__ = {"extend_existing": True} 
+    __table_args__ = {"extend_existing": True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     restaurant_id: int = Field(foreign_key="restaurants.id")
     delivery_partner_id: Optional[int] = Field(default=None, foreign_key="delivery_partners.id")
+
     total_amount: float
-    status: OrderStatus = Field(default=OrderStatus.PLACED) 
+    status: OrderStatus = Field(default=OrderStatus.PLACED)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     payment_image: Optional[str] = None
-    
+
     user: "User" = Relationship(back_populates="orders")
     restaurant: "Restaurant" = Relationship(back_populates="orders")
     items: List["OrderItem"] = Relationship(back_populates="order")
@@ -107,11 +112,14 @@ class Order(SQLModel, table=True):
 # --- ORDER ITEM TABLE ---
 class OrderItem(SQLModel, table=True):
     __tablename__ = "order_items"
-    __table_args__ = {"extend_existing": True} 
+    __table_args__ = {"extend_existing": True}
+
     id: Optional[int] = Field(default=None, primary_key=True)
     order_id: int = Field(foreign_key="orders.id")
     menu_id: int = Field(foreign_key="menus.id")
+
     quantity: int
-    price: float  
+    price: float
+
     order: "Order" = Relationship(back_populates="items")
     menu: "Menu" = Relationship(back_populates="order_items")

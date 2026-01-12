@@ -1,9 +1,17 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
-from sqlmodel import Session
+from database.models import Order, OrderItem, Menu, OrderStatus
+from sqlmodel import Session,select
 from typing import List, Optional
 import json
 import os
 import shutil
+from sqlalchemy.orm import selectinload
+
+from database.database import get_session
+from database.models import Order, OrderItem
+
+router = APIRouter(prefix="/orders", tags=["Orders"])
+
 
 # Database imports
 from database.database import get_session
