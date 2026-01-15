@@ -4,8 +4,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import API from '../api'; 
 import { useNavigate } from 'react-router-dom';
 
-
-
 const AuthPage = () => {
   const navigate = useNavigate();
   const errorRef = useRef(null);
@@ -15,7 +13,7 @@ const AuthPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
 
-  const roles = ['user', 'restaurant', 'delivery'];
+  const roles = ['user', 'restaurant', 'delivery_person'];
 
   const v = {
     len: password.length >= 8,
@@ -38,113 +36,192 @@ const AuthPage = () => {
     e.preventDefault();
     setError('');
     
-    console.log("--- Auth Attempt Started ---");
+    console.log("=== AUTH ATTEMPT STARTED ===");
     const emailValue = e.target.email.value;
     const currentRole = roles[roleIdx];
     
-    console.log("Mode:", isLogin ? "Login" : "Register");
-    console.log("Role:", currentRole);
-    console.log("Email:", emailValue);
+    console.log("AuthPage: Mode:", isLogin ? "Login" : "Register");
+    console.log("AuthPage: Role selected:", currentRole);
+    console.log("AuthPage: Email:", emailValue);
 
     let endpoint = "";
+    let dashboardRoute = "";
+    
     if (currentRole === 'restaurant') {
       endpoint = isLogin ? "/restaurants/login" : "/restaurants/register";
-    } else if (currentRole === 'delivery') {
+      dashboardRoute = "restaurant-dashboard";
+    } else if (currentRole === 'delivery_person') {
       endpoint = isLogin ? "/delivery/login" : "/delivery/register";
+      dashboardRoute = "delivery-dashboard";
     } else {
       endpoint = isLogin ? "/users/login" : "/users/register";
+      dashboardRoute = "user-dashboard";
     }
     
-    console.log("Target Endpoint:", endpoint);
+    console.log("AuthPage: Target Endpoint:", endpoint);
+    console.log("AuthPage: Dashboard Route:", dashboardRoute);
 
     try {
       let response;
       
       if (isLogin) {
+        console.log("AuthPage: Preparing LOGIN request");
         const formData = new URLSearchParams();
         formData.append('email', emailValue); 
         formData.append('password', password);
-        formData.append('role', currentRole);
+        
+        // Only append role for user login (not for restaurant or delivery)
+        if (currentRole === 'user') {
+          formData.append('role', currentRole);
+        }
 
-        console.log("Sending Login Form Data:", Object.fromEntries(formData));
+        console.log("AuthPage: Login Form Data:");
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}: ${value}`);
+        }
+        
         response = await API.post(endpoint, formData);
+        console.log("AuthPage: Login Response received:", response.data);
+        
         if (response.data.status === 'success') {
-          console.log("Login successful, saving session...");
+          console.log("AuthPage: Login successful!");
           
-          // Save the whole object (includes status, role, and restaurant/user data)
-          localStorage.setItem('userObj', JSON.stringify(response.data));
+          // Create a properly structured userObj based on role
+          let userObj = {
+            status: 'success',
+            role: currentRole,
+            email: emailValue
+          };
+
+          if (currentRole === 'restaurant') {
+            console.log("AuthPage: Structuring restaurant user object");
+            userObj.restaurant = response.data.restaurant;
+            console.log("AuthPage: Restaurant data:", userObj.restaurant);
+          } else if (currentRole === 'delivery_person') {
+            console.log("AuthPage: Structuring delivery partner user object");
+            userObj.delivery_partner = response.data.delivery_partner;
+            console.log("AuthPage: Delivery partner data:", userObj.delivery_partner);
+          } else {
+            console.log("AuthPage: Structuring user object");
+            userObj.user = response.data.user;
+            console.log("AuthPage: User data:", userObj.user);
+          }
           
-          // Save the current role for routing
+          console.log("AuthPage: Final userObj to be stored:", userObj);
+          localStorage.setItem('userObj', JSON.stringify(userObj));
           localStorage.setItem('role', currentRole);
           
-          navigate(`/${currentRole}-dashboard`);
-          return; // Exit function after successful navigation
+          console.log("AuthPage: Navigating to:", `/${dashboardRoute}`);
+          navigate(`/${dashboardRoute}`);
+          return;
+        } else {
+          console.error("AuthPage: Login rejected:", response.data.message);
+          setError(response.data.message || "Invalid email or password");
+          return;
         }
-       else{
-  console.error("Login rejected:", response.data.message);
-  setError(response.data.message|| "Invalid email or password"); // This shows the error on the login screen
-  return; // Stop the function so it doesn't navigate
-}
+        
       } else {
-        console.log("Validating Registration Requirements...");
+        // REGISTRATION
+        console.log("AuthPage: Preparing REGISTRATION request");
+        console.log("AuthPage: Validating password requirements...");
         console.table({ isPasswordValid, passwordsMatch });
 
         if (!passwordsMatch || !isPasswordValid) {
-          console.error("Validation Failed: Password requirements not met");
+          console.error("AuthPage: Validation Failed - Password requirements not met");
           setError("Please ensure password requirements are met.");
           return;
         }
-const formData = new FormData();
 
-formData.append("name", e.target.name.value);
-formData.append("email", emailValue);
-formData.append("mobile", e.target.mobile.value);
-formData.append("address", e.target.address.value);
-formData.append("password", password);
-formData.append("confirm_password", confirmPassword);
-formData.append("role", currentRole);
+        const formData = new FormData();
+        formData.append("name", e.target.name.value);
+        formData.append("email", emailValue);
+        formData.append("mobile", e.target.mobile.value);
+        formData.append("address", e.target.address.value);
+        formData.append("password", password);
+        formData.append("confirm_password", confirmPassword);
         
-      console.log("Sending multipart/form-data:");
-for (let pair of formData.entries()) {
-  console.log(pair[0], pair[1]);
-}
+        // Only append role for user registration
+        if (currentRole === 'user') {
+          formData.append("role", currentRole);
+        }
+        
+        // Add vehicle for delivery registration
+        if (currentRole === 'delivery_person' && e.target.vehicle) {
+          formData.append("vehicle", e.target.vehicle.value);
+        }
+        
+        console.log("AuthPage: Registration Form Data:");
+        for (let pair of formData.entries()) {
+          console.log(`  ${pair[0]}: ${pair[1]}`);
+        }
 
-response = await API.post(endpoint, formData);
+        response = await API.post(endpoint, formData);
+        console.log("AuthPage: Registration Response received:", response.data);
+
+        if (response.data.status === "error") {
+          console.error("AuthPage: Registration rejected:", response.data.message);
+          setError(response.data.message || "Registration failed.");
+          return;
+        }
+
+        console.log("AuthPage: Registration successful!");
+        
+        // Create properly structured userObj for registration
+        let userObj = {
+          status: 'success',
+          role: currentRole,
+          email: emailValue
+        };
+
+        if (currentRole === 'restaurant') {
+          console.log("AuthPage: Structuring restaurant registration object");
+          userObj.restaurant = response.data.restaurant || { 
+            id: response.data.restaurant_id, 
+            name: e.target.name.value,
+            email: emailValue 
+          };
+          console.log("AuthPage: Restaurant data:", userObj.restaurant);
+        } else if (currentRole === 'delivery_person') {
+          console.log("AuthPage: Structuring delivery partner registration object");
+          userObj.delivery_partner = response.data.delivery_partner || { 
+            id: response.data.delivery_partner_id, 
+            name: e.target.name.value,
+            email: emailValue 
+          };
+          console.log("AuthPage: Delivery partner data:", userObj.delivery_partner);
+        } else {
+          console.log("AuthPage: Structuring user registration object");
+          userObj.user = response.data.user || { 
+            id: response.data.user_id, 
+            name: e.target.name.value,
+            email: emailValue 
+          };
+          console.log("AuthPage: User data:", userObj.user);
+        }
+
+        console.log("AuthPage: Final userObj to be stored:", userObj);
+        localStorage.setItem('userObj', JSON.stringify(userObj));
+        localStorage.setItem('role', currentRole);
+        
+        console.log("AuthPage: Navigating to:", `/${dashboardRoute}`);
+        navigate(`/${dashboardRoute}`);
       }
 
-      // --- LOG SUCCESS DATA ---
-     // --- LOG SUCCESS DATA ---
-console.log("Server Response Received:", response.data);
-
-//  DO NOT navigate again for LOGIN
-if (!isLogin) {
-  if (response.data.status === "error") {
-    console.error("Register rejected by server:", response.data.message);
-    setError(response.data.message || "Registration failed.");
-    return;
-  }
-
-  localStorage.setItem('userObj', JSON.stringify(response.data));
-  localStorage.setItem('role', currentRole);
-  navigate(`/${currentRole}-dashboard`);
-}
-
-
     } catch (err) {
-      console.error("--- Auth Attempt Failed ---");
+      console.error("=== AUTH ATTEMPT FAILED ===");
       if (err.response) {
-        console.error("Response Status:", err.response.status);
-        console.error("Response Data:", err.response.data);
+        console.error("AuthPage: Response Status:", err.response.status);
+        console.error("AuthPage: Response Data:", err.response.data);
         
         const detail = err.response.data.detail;
         const msg = Array.isArray(detail) 
           ? detail.map(d => `${d.loc ? d.loc[1] : 'Error'}: ${d.msg}`).join(", ") 
-          : (detail || "Auth Failed");
+          : (detail || err.response.data.message || "Auth Failed");
         
-        console.error("Formatted Error Message:", msg);
+        console.error("AuthPage: Formatted Error Message:", msg);
         setError(msg);
       } else {
-        console.error("Network or Connection Error:", err.message);
+        console.error("AuthPage: Network or Connection Error:", err.message);
         setError("Server connection failed.");
       }
     }
@@ -160,7 +237,7 @@ if (!isLogin) {
         <Tabs
           value={roleIdx}
           onChange={(e, val) => {
-            console.log("Tab changed to role index:", val);
+            console.log("AuthPage: Tab changed to role index:", val, "Role:", roles[val]);
             setRoleIdx(val);
             setError('');
             setPassword('');
@@ -226,7 +303,7 @@ if (!isLogin) {
                 <TextField fullWidth name="name" label="Name" variant="outlined" required />
                 <TextField fullWidth name="mobile" label="Mobile" variant="outlined" required />
                 <TextField fullWidth name="address" label="Address" variant="outlined" required />
-                {roles[roleIdx] === 'delivery' && (
+                {roles[roleIdx] === 'delivery_person' && (
                   <TextField fullWidth name="vehicle" label="Vehicle" variant="outlined" defaultValue="Bike" />
                 )}
               </>
@@ -247,7 +324,7 @@ if (!isLogin) {
           align="center"
           sx={{ mt: 2, cursor: 'pointer', color: '#1a237e', textDecoration: 'underline' }}
           onClick={() => {
-            console.log("Switching mode to:", !isLogin ? "Login" : "Registration");
+            console.log("AuthPage: Switching mode to:", !isLogin ? "Login" : "Registration");
             setIsLogin(!isLogin);
             setError('');
             setPassword('');

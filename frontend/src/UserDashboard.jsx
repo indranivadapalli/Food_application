@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, CssBaseline,Skeleton,Snackbar,Alert,TextField,Chip, AppBar,Badge,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
+  Box, CssBaseline,Snackbar,Alert,TextField,Chip, AppBar,Dialog,DialogContent,DialogContentText,DialogActions,DialogTitle, Button ,Paper,Grid,Toolbar, Typography, Drawer, List, ListItem,
   ListItemButton, ListItemIcon,CircularProgress, ListItemText, Divider, Container, Avatar
 } from '@mui/material';
 import {
@@ -162,230 +162,309 @@ navigate('/login');
     </Box>
   );
 };
-const BrowseRestaurants = ({ userObj,selectedRestaurant, setSelectedRestaurant,showNotify,setActiveTab,setRefreshOrders,setOrders}) => {
+const BrowseRestaurants = ({ userObj, selectedRestaurant, setSelectedRestaurant, showNotify, setActiveTab, setRefreshOrders, setOrders }) => {
+  console.log("=== BrowseRestaurants: Component Rendering ===");
+  console.log("BrowseRestaurants: userObj received:", userObj);
+  
   const [restaurants, setRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
-const [quantity, setQuantity] = useState(1);
-const [openOrderDialog, setOpenOrderDialog] = useState(false);
-const handleopenOrderDialog = (item) => {
-  console.log("Order dialog opened for item:", item);
-  setSelectedItem(item);
-  setQuantity(1);
-  setOpenOrderDialog(true);
-};
-const [menuList, setMenuList] = useState([]);
+  const [quantity, setQuantity] = useState(1);
+  const [openOrderDialog, setOpenOrderDialog] = useState(false);
+  const [menuList, setMenuList] = useState([]);
+
+  const handleopenOrderDialog = (item) => {
+    console.log("BrowseRestaurants: Order dialog opened for item:", item);
+    setSelectedItem(item);
+    setQuantity(1);
+    setOpenOrderDialog(true);
+  };
+
   useEffect(() => {
-     console.log(" Fetching restaurants...");
+    console.log("BrowseRestaurants: useEffect - Fetching restaurants");
     const fetchRestaurants = async () => {
       try {
-        
+        console.log("BrowseRestaurants: API Call - GET /restaurants");
         const res = await axios.get('http://127.0.0.1:8000/restaurants');
-console.log(" Restaurants API response:", res.data);
+        console.log("BrowseRestaurants: API response:", res.data);
+        
         const data = res.data.restaurants || res.data; 
-        setRestaurants(Array?.isArray(data) ? data : []);
+        const restaurantsArray = Array.isArray(data) ? data : [];
+        
+        setRestaurants(restaurantsArray);
+        console.log("BrowseRestaurants: Total restaurants loaded:", restaurantsArray.length);
       } catch (err) {
-
-        console.error("Failed to fetch restaurants", err);
+        console.error("BrowseRestaurants: Failed to fetch restaurants:", err);
         setRestaurants([]);
       } finally {
         setLoading(false);
+        console.log("BrowseRestaurants: Fetch completed");
       }
     };
     fetchRestaurants();
   }, []);
+
   const handlePlaceOrder = async () => {
-  try {
-    const formData = new FormData();
+    console.log("BrowseRestaurants: handlePlaceOrder called");
+    console.log("BrowseRestaurants: Order details:", {
+      userId: userObj.user.id,
+      restaurantId: selectedRestaurant.id,
+      item: selectedItem,
+      quantity
+    });
 
-    formData.append("user_id", userObj.user.id);
-    formData.append("restaurant_id", selectedRestaurant.id);
+    try {
+      const formData = new FormData();
+      formData.append("user_id", userObj.user.id);
+      formData.append("restaurant_id", selectedRestaurant.id);
+      formData.append(
+        "items",
+        JSON.stringify([{
+          menu_id: selectedItem.id,
+          quantity: quantity
+        }])
+      );
 
-    // 🔥 items MUST be STRING
-    formData.append(
-  "items",
-  JSON.stringify([
-    {
-      menu_id: selectedItem.id,   // ✅ REQUIRED BY BACKEND
-      quantity: quantity
-    }
-  ])
-);
-
-    // attachment optional – skip for now
-    for (let pair of formData.entries()) {
-  console.log(pair[0], pair[1]);
-}
-
- const res= await axios.post(
-      "http://127.0.0.1:8000/orders/create",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
+      console.log("BrowseRestaurants: Form data prepared:");
+      for (let pair of formData.entries()) {
+        console.log(`  ${pair[0]}:`, pair[1]);
       }
-    );
 
-    setOpenOrderDialog(false);
-    showNotify("Order placed successfully 🎉", "success");
-  const newOrderId = res.data.id || Math.floor(Math.random() * 1000000); // use backend returned id if available
-    setOrders(prev => [
-      ...prev,
-      {
-        id: newOrderId,
-        items: [
-          {
+      console.log("BrowseRestaurants: Submitting order to API");
+      const res = await axios.post(
+        "http://127.0.0.1:8000/orders/create",
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+
+      console.log("BrowseRestaurants: Order response:", res.data);
+      setOpenOrderDialog(false);
+      showNotify("Order placed successfully 🎉", "success");
+      
+      const newOrderId = res.data.order_id || Math.floor(Math.random() * 1000000);
+      console.log("BrowseRestaurants: New order ID:", newOrderId);
+      
+      setOrders(prev => [
+        ...prev,
+        {
+          id: newOrderId,
+          items: [{
             food_id: selectedItem.id,
             name: selectedItem.name,
             price: selectedItem.price,
             quantity
-          }
-        ],
-        status: "Pending",
-        created_at: new Date().toISOString()
-      }
-    ]);
-    setActiveTab("My Orders");
-    setRefreshOrders(prev => prev + 1);
-  
+          }],
+          status: "PLACED",
+          created_at: new Date().toISOString()
+        }
+      ]);
+      
+      setActiveTab("My Orders");
+      setRefreshOrders(prev => prev + 1);
+      console.log("BrowseRestaurants: Order placed successfully");
 
-  } catch (err) {
-    console.error("Order placement failed:", err.response?.data || err);
-    showNotify("Order failed", "error");
-    setOpenOrderDialog(false);
-  }
-};
+    } catch (err) {
+      console.error("BrowseRestaurants: Order placement failed:", err);
+      console.error("BrowseRestaurants: Error details:", err.response?.data);
+      showNotify("Order failed", "error");
+      setOpenOrderDialog(false);
+    }
+  };
 
-useEffect(() => {
-  if (!selectedRestaurant?.id) return;
-  console.log(" Fetching menu for restaurant:", selectedRestaurant.id);
-  if (selectedRestaurant) {
+  useEffect(() => {
+    if (!selectedRestaurant?.id) return;
+    
+    console.log("BrowseRestaurants: useEffect - Fetching menu for restaurant:", selectedRestaurant.id);
     const fetchMenu = async () => {
       try {
-        console.log("Fetching menu for:", selectedRestaurant.id);
+        console.log("BrowseRestaurants: API Call - GET /menu/" + selectedRestaurant.id);
         const res = await axios.get(`http://127.0.0.1:8000/menu/${selectedRestaurant.id}`);
-     const rawMenuData = res.data.menu || res.data;
-    
-    console.log("Raw Menu Data:", rawMenuData);
+        console.log("BrowseRestaurants: Menu API response:", res.data);
+        
+        const rawMenuData = res.data.menu || res.data;
+        console.log("BrowseRestaurants: Raw menu data:", rawMenuData);
 
-    // 2. Extract items from the categories (starters, main course, etc.)
-    // We convert the object values into an array and grab the 'items' from each
-    const allItems = Object.values(rawMenuData).flatMap(category => {
-      return Array?.isArray(category.items) ? category.items : [];
-    });
+        const allItems = Object.values(rawMenuData).flatMap(category => {
+          return Array.isArray(category.items) ? category.items : [];
+        });
 
-    console.log("Extracted Items:", allItems);
-    setMenuList(allItems);
+        console.log("BrowseRestaurants: Extracted menu items:", allItems);
+        setMenuList(allItems);
+        console.log("BrowseRestaurants: Total menu items:", allItems.length);
       } catch (err) {
-        console.error("Failed to load menu", err);
+        console.error("BrowseRestaurants: Failed to load menu:", err);
         setMenuList([]);
       }
     };
     fetchMenu();
-  }
-}, [selectedRestaurant]);
+  }, [selectedRestaurant]);
 
   if (loading) {
+    console.log("BrowseRestaurants: Rendering loading state");
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
         <CircularProgress color="success" />
       </Box>
     );
   }
-if (selectedRestaurant) {
-  return (
-    <Box>
-      <Button onClick={() => setSelectedRestaurant(null)} sx={{ mb: 2, color: '#2e7d32' }}>
-        ← Back to Nearby Restaurants
-      </Button>
-      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
-        {selectedRestaurant.name} Menu
-      </Typography>
-      <Grid container spacing={3}>
-        {Array?.isArray(menuList) && menuList.length > 0 ? (
-        menuList.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
-            <Paper sx={{ p: 2, borderRadius: 3 }}>
-              {/* Display menu item data here */}
-              <Box sx={{ height: 140, mb: 2, bgcolor: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
-        {item.menu_item_pic && (
-  <img
-    src={`http://127.0.0.1:8000/${item.menu_item_pic}`}
-    alt={item.name}
-    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-    onError={(e) => (e.target.style.display = 'none')}
-  />
-)}
+
+  if (selectedRestaurant) {
+    console.log("BrowseRestaurants: Rendering menu for restaurant:", selectedRestaurant.name);
+    return (
+      <Box>
+        <Button onClick={() => {
+          console.log("BrowseRestaurants: Back button clicked");
+          setSelectedRestaurant(null);
+        }} sx={{ mb: 2, color: '#2e7d32' }}>
+          ← Back to Nearby Restaurants
+        </Button>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
+          {selectedRestaurant.name} Menu
+        </Typography>
+        <Grid container spacing={3}>
+          {Array.isArray(menuList) && menuList.length > 0 ? (
+            menuList.map((item) => {
+              console.log("BrowseRestaurants: Rendering menu item:", item.id);
+              return (
+                <Grid item xs={12} sm={6} md={4} key={item.id}>
+                  <Paper sx={{ p: 2, borderRadius: 3 }}>
+                    <Box sx={{ height: 140, mb: 2, bgcolor: '#f0f0f0', borderRadius: 2, overflow: 'hidden' }}>
+                      {item.menu_item_pic && (
+                        <img
+                          src={`http://127.0.0.1:8000/${item.menu_item_pic}`}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => (e.target.style.display = 'none')}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="h6">{item.name}</Typography>
+                    <Typography color="success.main" fontWeight="bold">₹{item.price}</Typography>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      size="small"
+                      onClick={() => {
+                        console.log("BrowseRestaurants: Order Now clicked for:", item.name);
+                        handleopenOrderDialog(item);
+                      }}
+                    >
+                      Order Now
+                    </Button>
+                  </Paper>
+                </Grid>
+              );
+            })
+          ) : (
+            <Typography sx={{ p: 3 }}>No menu items available for this restaurant.</Typography>
+          )}
+        </Grid>
+        
+        <Dialog
+          open={openOrderDialog}
+          onClose={() => {
+            console.log("BrowseRestaurants: Order dialog closed");
+            setOpenOrderDialog(false);
+          }}
+        >
+          <DialogTitle>Order Summary</DialogTitle>
+          <DialogContent>
+            <Typography><b>{selectedItem?.name}</b></Typography>
+            <Typography>Price: ₹{selectedItem?.price}</Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+              <Button onClick={() => {
+                if (quantity > 1) {
+                  const newQty = quantity - 1;
+                  console.log("BrowseRestaurants: Quantity decreased to:", newQty);
+                  setQuantity(newQty);
+                }
+              }}>
+                -
+              </Button>
+              <Typography>{quantity}</Typography>
+              <Button onClick={() => {
+                const newQty = quantity + 1;
+                console.log("BrowseRestaurants: Quantity increased to:", newQty);
+                setQuantity(newQty);
+              }}>
+                +
+              </Button>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Typography variant="h6">
+              Total: ₹{(selectedItem?.price || 0) * quantity}
+            </Typography>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={() => {
+              console.log("BrowseRestaurants: Order cancelled");
+              setOpenOrderDialog(false);
+            }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handlePlaceOrder}
+            >
+              Place Order
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-              <Typography variant="h6">{item.name}</Typography>
-              <Typography color="success.main" fontWeight="bold">₹{item.price}</Typography>
-           <Button
-  variant="contained"
-  color="success"
-  size="small"
-  onClick={() => handleopenOrderDialog(item)}
->
-  Order Now
-</Button>
+    );
+  }
 
-            </Paper>
-          </Grid>
-        ))
-      ) : (
-    <Typography sx={{ p: 3 }}>No menu items available for this restaurant.</Typography>
-  )}
-      </Grid>
-      <Dialog
-        open={openOrderDialog}
-        onClose={() => setOpenOrderDialog(false)}
-      >
-        <DialogTitle>Order Summary</DialogTitle>
+  // ✅ ENHANCED: Filter restaurants based on search query (name + address)
+  const filteredRestaurants = restaurants.filter(r => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchesName = r.name.toLowerCase().includes(searchLower);
+    const matchesAddress = r.address?.toLowerCase().includes(searchLower);
+    
+    const matches = matchesName || matchesAddress;
+    
+    if (searchQuery && matches) {
+      console.log("BrowseRestaurants: Restaurant matches search:", {
+        name: r.name,
+        matchedBy: matchesName ? 'name' : 'address'
+      });
+    }
+    return matches;
+  });
 
-        <DialogContent>
-          <Typography><b>{selectedItem?.name}</b></Typography>
-          <Typography>Price: ₹{selectedItem?.price}</Typography>
+  const filteredCount = filteredRestaurants.length;
+  console.log("BrowseRestaurants: Search query:", searchQuery);
+  console.log("BrowseRestaurants: Total restaurants:", restaurants.length);
+  console.log("BrowseRestaurants: Filtered restaurants:", filteredCount);
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-            <Button onClick={() => quantity > 1 && setQuantity(quantity - 1)}>
-              -
-            </Button>
-            <Typography>{quantity}</Typography>
-            <Button onClick={() => setQuantity(quantity + 1)}>
-              +
-            </Button>
-          </Box>
+  // Helper function to highlight matched text
+  const highlightMatch = (text, query) => {
+    if (!query || !text) return text;
+    
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return (
+      <span>
+        {parts.map((part, index) => 
+          part.toLowerCase() === query.toLowerCase() ? (
+            <span key={index} style={{ backgroundColor: '#fff59d', fontWeight: 'bold' }}>
+              {part}
+            </span>
+          ) : (
+            part
+          )
+        )}
+      </span>
+    );
+  };
 
-          <Divider sx={{ my: 2 }} />
-
-          <Typography variant="h6">
-            Total: ₹{(selectedItem?.price || 0) * quantity}
-          </Typography>
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => setOpenOrderDialog(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="success"
-            onClick={handlePlaceOrder}
-          >
-            Place Order
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-}
-const filteredCount = restaurants.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ).length;
   return (
     <Box>
-     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#2e7d32' }}>
           Nearby Restaurants
         </Typography>
@@ -396,25 +475,31 @@ const filteredCount = restaurants.filter(r =>
           sx={{ fontWeight: 'bold', color: '#666', borderColor: '#e0e0e0' }}
         />
       </Box>
-<TextField
-  fullWidth
-  variant="outlined"
-  placeholder="Search for restaurants or cuisines..."
-  value={searchQuery}
-  onChange={(e) => setSearchQuery(e.target.value)}
-  sx={{ 
+
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder="Search by restaurant name or location..."
+        value={searchQuery}
+        onChange={(e) => {
+          const newQuery = e.target.value;
+          console.log("BrowseRestaurants: Search query changed to:", newQuery);
+          setSearchQuery(newQuery);
+        }}
+        sx={{ 
           mb: 4, 
           bgcolor: 'white', 
           borderRadius: 2,
           '& .MuiOutlinedInput-root': {
-             '&:hover fieldset': { borderColor: '#2e7d32' },
-             '&.Mui-focused fieldset': { borderColor: '#2e7d32' },
+            '&:hover fieldset': { borderColor: '#2e7d32' },
+            '&.Mui-focused fieldset': { borderColor: '#2e7d32' },
           }
         }}
-  InputProps={{
-    startAdornment: <SearchIcon sx={{ color: 'gray', mr: 1 }} />,
-  }}
-/>
+        InputProps={{
+          startAdornment: <SearchIcon sx={{ color: 'gray', mr: 1 }} />,
+        }}
+      />
+
       {restaurants.length === 0 ? (
         <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: '#f1f8e9' }}>
           <Typography variant="h6" color="text.secondary">
@@ -424,81 +509,111 @@ const filteredCount = restaurants.filter(r =>
             Please check back later!
           </Typography>
         </Paper>
+      ) : filteredCount === 0 ? (
+        <Paper sx={{ p: 5, textAlign: 'center', borderRadius: 3, bgcolor: '#fff3e0' }}>
+          <SearchIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            No restaurants match "{searchQuery}"
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Try searching with a different keyword
+          </Typography>
+          <Button 
+            variant="outlined" 
+            color="success" 
+            sx={{ mt: 2 }}
+            onClick={() => {
+              console.log("BrowseRestaurants: Clear search clicked");
+              setSearchQuery('');
+            }}
+          >
+            Clear Search
+          </Button>
+        </Paper>
       ) : (
         <Grid container spacing={3}>
-          {restaurants.map((rest) => (
-            <Grid item xs={12} sm={6} md={4} key={rest.id}>
-  <Paper 
-    elevation={2} 
-    sx={{ 
-      borderRadius: 4, 
-      overflow: 'hidden', 
-      transition: 'all 0.3s ease-in-out', 
-      position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      border: '1px solid #f0f0f0',
-      '&:hover': { 
-        transform: 'translateY(-8px)', 
-        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-        borderColor: '#2e7d32' 
-      },
-      cursor: 'pointer'
-    }}
-   onClick={() => {
-  console.log(" Restaurant selected:", rest);
-  setSelectedRestaurant(rest);
-}} // Changed from navigate to setSelectedRestaurant
-  >
-                {/* RESTAURANT IMAGE */}
-                <Box sx={{ height: 160, bgcolor: '#e0e0e0' }}>
-                 {rest.restaurant_pic ? (
-    <img 
-      src={`http://127.0.0.1:8000/${rest.restaurant_pic}`} 
-      alt={rest.name}
-      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-      // If the backend image fails to load, hide it and show the bgcolor
-      onError={(e) => { e.target.style.display = 'none'; }} 
-    />
-  ) : (
-    <Typography variant="body2" color="text.secondary">No Image Available</Typography>
-  )}
-                </Box>
-
-                <Box sx={{ p: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    {rest.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" noWrap>
-                    {rest.address || "No address provided"}
-                  </Typography>
-                  
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', px: 1, borderRadius: 1, fontWeight: 'bold' }}>
-                      FREE DELIVERY
-                    </Typography>
-          <Button 
-  variant="outlined" // Outlined looks cleaner on a card that is already interactive
-  color="success" 
-  fullWidth
-  sx={{ mt: 1, borderRadius: 2, fontWeight: 'bold' }}
-  onClick={(e) => {
-    e.stopPropagation(); // Very important: stops the Paper's click from firing twice
-    setSelectedRestaurant(rest);
-  }}
->
-  View Menu
-</Button>
+          {/* ✅ FIXED: Use filteredRestaurants instead of restaurants */}
+          {filteredRestaurants.map((rest) => {
+            console.log("BrowseRestaurants: Rendering restaurant card:", rest.name);
+            return (
+              <Grid item xs={12} sm={6} md={4} key={rest.id}>
+                <Paper 
+                  elevation={2} 
+                  sx={{ 
+                    borderRadius: 4, 
+                    overflow: 'hidden', 
+                    transition: 'all 0.3s ease-in-out', 
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                    border: '1px solid #f0f0f0',
+                    '&:hover': { 
+                      transform: 'translateY(-8px)', 
+                      boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
+                      borderColor: '#2e7d32' 
+                    },
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => {
+                    console.log("BrowseRestaurants: Restaurant card clicked:", rest.name);
+                    setSelectedRestaurant(rest);
+                  }}
+                >
+                  {/* RESTAURANT IMAGE */}
+                  <Box sx={{ height: 160, bgcolor: '#e0e0e0' }}>
+                    {rest.restaurant_pic ? (
+                      <img 
+                        src={`http://127.0.0.1:8000/${rest.restaurant_pic}`} 
+                        alt={rest.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => { e.target.style.display = 'none'; }} 
+                      />
+                    ) : (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                        <Typography variant="body2" color="text.secondary">No Image Available</Typography>
+                      </Box>
+                    )}
                   </Box>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
+
+                  <Box sx={{ p: 2 }}>
+                    {/* ✅ ENHANCED: Highlight matched text in restaurant name */}
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      {searchQuery ? highlightMatch(rest.name, searchQuery) : rest.name}
+                    </Typography>
+                    
+                    {/* ✅ ENHANCED: Highlight matched text in address */}
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {searchQuery ? highlightMatch(rest.address || "No address provided", searchQuery) : (rest.address || "No address provided")}
+                    </Typography>
+                    
+                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#e8f5e9', color: '#2e7d32', px: 1, borderRadius: 1, fontWeight: 'bold' }}>
+                        FREE DELIVERY
+                      </Typography>
+                    </Box>
+                    
+                    <Button 
+                      variant="outlined"
+                      color="success" 
+                      fullWidth
+                      sx={{ mt: 1, borderRadius: 2, fontWeight: 'bold' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log("BrowseRestaurants: View Menu clicked for:", rest.name);
+                        setSelectedRestaurant(rest);
+                      }}
+                    >
+                      View Menu
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
     </Box>
-     
   );
 };
 const UserOrdersView = ({orders, setOrders, userObj,showNotify, refreshOrders }) => {
@@ -513,8 +628,6 @@ const UserOrdersView = ({orders, setOrders, userObj,showNotify, refreshOrders })
     );
     console.log("Orders API response:", res.data);
 
-
-   const data = res.data;
 
 // 🔥 ALWAYS FORCE ARRAY
 const ordersArray = Array.isArray(res.data.orders)
@@ -576,7 +689,7 @@ useEffect(() => {
       <Typography variant="h4" sx={{ mb: 4, fontWeight: 'bold', color: '#2e7d32' }}>My Order History</Typography>
       <Grid container spacing={3}>
         {orders?.map((order) => {
-          const orderTotal = order.total_amount ?? 0;
+
 
     return (
           <Grid item xs={12} key={order.id}>
